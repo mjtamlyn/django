@@ -520,9 +520,8 @@ def password_change(request, template_name=None, post_change_redirect=None,
     password_change = PasswordChangeView.as_view(**kwargs)
     return password_change(request)
 
-def password_change_done(request, template_name=None, post_change_redirect=None,
-                    password_change_form=None, current_app=None,
-                    extra_context=None):
+def password_change_done(request, template_name=None, current_app=None,
+                            extra_context=None):
     kwargs = {}
 
     if template_name is not None:
