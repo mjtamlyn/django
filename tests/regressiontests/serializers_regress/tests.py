@@ -10,10 +10,7 @@ from __future__ import absolute_import
 
 import datetime
 import decimal
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+from io import BytesIO
 
 try:
     import yaml
@@ -492,7 +489,7 @@ def fieldsTest(format, self):
 
     # Serialize then deserialize the test database
     serialized_data = serializers.serialize(format, [obj], indent=2, fields=('field1','field3'))
-    result = serializers.deserialize(format, serialized_data).next()
+    result = next(serializers.deserialize(format, serialized_data))
 
     # Check that the deserialized object contains data in only the serialized fields.
     self.assertEqual(result.object.field1, 'first')
@@ -504,7 +501,7 @@ def streamTest(format, self):
     obj.save_base(raw=True)
 
     # Serialize the test database to a stream
-    stream = StringIO()
+    stream = BytesIO()
     serializers.serialize(format, [obj], indent=2, stream=stream)
 
     # Serialize normally for a comparison

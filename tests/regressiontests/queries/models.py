@@ -10,6 +10,10 @@ from django.db import models
 class DumbCategory(models.Model):
     pass
 
+class ProxyCategory(DumbCategory):
+    class Meta:
+        proxy = True
+
 class NamedCategory(DumbCategory):
     name = models.CharField(max_length=10)
 
@@ -260,7 +264,7 @@ class SingleObject(models.Model):
         return self.name
 
 class RelatedObject(models.Model):
-    single = models.ForeignKey(SingleObject)
+    single = models.ForeignKey(SingleObject, null=True)
 
     class Meta:
         ordering = ['single']

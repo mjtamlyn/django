@@ -1,5 +1,6 @@
 from django.core import management
-from django.test import TestCase
+from django.db import transaction
+from django.test import TestCase, TransactionTestCase
 
 from .models import Article, Book
 
@@ -18,6 +19,40 @@ class SampleTestCase(TestCase):
             ],
             lambda a: a.headline
         )
+
+
+class TestNoInitialDataLoading(TransactionTestCase):
+    def test_syncdb(self):
+        with transaction.commit_manually():
+            Book.objects.all().delete()
+
+            management.call_command(
+                'syncdb',
+                verbosity=0,
+                load_initial_data=False
+            )
+            self.assertQuerysetEqual(Book.objects.all(), [])
+            transaction.rollback()
+
+    def test_flush(self):
+        # Test presence of fixture (flush called by TransactionTestCase)
+        self.assertQuerysetEqual(
+            Book.objects.all(), [
+                u'Achieving self-awareness of Python programs'
+            ],
+            lambda a: a.name
+        )
+
+        with transaction.commit_manually():
+            management.call_command(
+                'flush',
+                verbosity=0,
+                interactive=False,
+                commit=False,
+                load_initial_data=False
+            )
+            self.assertQuerysetEqual(Book.objects.all(), [])
+            transaction.rollback()
 
 
 class FixtureTestCase(TestCase):

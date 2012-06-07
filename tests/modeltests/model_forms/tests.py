@@ -1126,7 +1126,7 @@ class OldFormForXTests(TestCase):
 
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test1.txt', 'hello world')})
+                files={'file': SimpleUploadedFile('test1.txt', b'hello world')})
         self.assertEqual(f.is_valid(), True)
         self.assertEqual(type(f.cleaned_data['file']), SimpleUploadedFile)
         instance = f.save()
@@ -1135,7 +1135,7 @@ class OldFormForXTests(TestCase):
         instance.file.delete()
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test1.txt', 'hello world')})
+                files={'file': SimpleUploadedFile('test1.txt', b'hello world')})
         self.assertEqual(f.is_valid(), True)
         self.assertEqual(type(f.cleaned_data['file']), SimpleUploadedFile)
         instance = f.save()
@@ -1144,7 +1144,7 @@ class OldFormForXTests(TestCase):
         # Check if the max_length attribute has been inherited from the model.
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test-maxlength.txt', 'hello world')})
+                files={'file': SimpleUploadedFile('test-maxlength.txt', b'hello world')})
         self.assertEqual(f.is_valid(), False)
 
         # Edit an instance that already has the file defined in the model. This will not
@@ -1165,7 +1165,7 @@ class OldFormForXTests(TestCase):
 
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test2.txt', 'hello world')}, instance=instance)
+                files={'file': SimpleUploadedFile('test2.txt', b'hello world')}, instance=instance)
         self.assertEqual(f.is_valid(), True)
         instance = f.save()
         self.assertEqual(instance.file.name, 'tests/test2.txt')
@@ -1174,7 +1174,7 @@ class OldFormForXTests(TestCase):
         instance.file.delete()
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test2.txt', 'hello world')})
+                files={'file': SimpleUploadedFile('test2.txt', b'hello world')})
         self.assertEqual(f.is_valid(), True)
         instance = f.save()
         self.assertEqual(instance.file.name, 'tests/test2.txt')
@@ -1193,7 +1193,7 @@ class OldFormForXTests(TestCase):
 
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test3.txt', 'hello world')}, instance=instance)
+                files={'file': SimpleUploadedFile('test3.txt', b'hello world')}, instance=instance)
         self.assertEqual(f.is_valid(), True)
         instance = f.save()
         self.assertEqual(instance.file.name, 'tests/test3.txt')
@@ -1215,7 +1215,7 @@ class OldFormForXTests(TestCase):
 
         f = TextFileForm(
                 data={'description': u'Assistance'},
-                files={'file': SimpleUploadedFile('test3.txt', 'hello world')})
+                files={'file': SimpleUploadedFile('test3.txt', b'hello world')})
         self.assertEqual(f.is_valid(), True)
         instance = f.save()
         self.assertEqual(instance.file.name, 'tests/test3.txt')
@@ -1242,8 +1242,10 @@ class OldFormForXTests(TestCase):
         # it comes to validation. This specifically tests that #6302 is fixed for
         # both file fields and image fields.
 
-        image_data = open(os.path.join(os.path.dirname(__file__), "test.png"), 'rb').read()
-        image_data2 = open(os.path.join(os.path.dirname(__file__), "test2.png"), 'rb').read()
+        with open(os.path.join(os.path.dirname(__file__), "test.png"), 'rb') as fp:
+            image_data = fp.read()
+        with open(os.path.join(os.path.dirname(__file__), "test2.png"), 'rb') as fp:
+            image_data2 = fp.read()
 
         f = ImageFileForm(
                 data={'description': u'An image'},
@@ -1369,19 +1371,6 @@ class OldFormForXTests(TestCase):
         instance = f.save()
         self.assertEqual(instance.image.name, 'foo/test4.png')
         instance.delete()
-
-        # Test image field when cStringIO is not available
-        from django.forms import fields
-        from StringIO import StringIO
-        old_StringIO = fields.StringIO
-        fields.StringIO = StringIO
-        try:
-            f = ImageFileForm(
-                data={'description': u'An image'},
-                files={'image': SimpleUploadedFile('test.png', image_data)})
-            self.assertEqual(f.is_valid(), True)
-        finally:
-            fields.StringIO = old_StringIO
 
     def test_media_on_modelform(self):
         # Similar to a regular Form class you can define custom media to be used on

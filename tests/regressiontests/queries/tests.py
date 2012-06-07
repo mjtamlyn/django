@@ -19,7 +19,8 @@ from .models import (Annotation, Article, Author, Celebrity, Child, Cover,
     ManagedModel, Member, NamedCategory, Note, Number, Plaything, PointerA,
     Ranking, Related, Report, ReservedName, Tag, TvChef, Valid, X, Food, Eaten,
     Node, ObjectA, ObjectB, ObjectC, CategoryItem, SimpleCategory,
-    SpecialCategory, OneToOneCategory, NullableName)
+    SpecialCategory, OneToOneCategory, NullableName, ProxyCategory,
+    SingleObject, RelatedObject)
 
 
 class BaseQuerysetTest(TestCase):
@@ -843,6 +844,39 @@ class Queries1Tests(BaseQuerysetTest):
         )
         Tag._meta.ordering = original_ordering
 
+    def test_exclude(self):
+        self.assertQuerysetEqual(
+            Item.objects.exclude(tags__name='t4'),
+            [repr(i) for i in Item.objects.filter(~Q(tags__name='t4'))])
+        self.assertQuerysetEqual(
+            Item.objects.exclude(Q(tags__name='t4')|Q(tags__name='t3')),
+            [repr(i) for i in Item.objects.filter(~(Q(tags__name='t4')|Q(tags__name='t3')))])
+        self.assertQuerysetEqual(
+            Item.objects.exclude(Q(tags__name='t4')|~Q(tags__name='t3')),
+            [repr(i) for i in Item.objects.filter(~(Q(tags__name='t4')|~Q(tags__name='t3')))])
+
+    def test_nested_exclude(self):
+        self.assertQuerysetEqual(
+            Item.objects.exclude(~Q(tags__name='t4')),
+            [repr(i) for i in Item.objects.filter(~~Q(tags__name='t4'))])
+
+    def test_double_exclude(self):
+        self.assertQuerysetEqual(
+            Item.objects.filter(Q(tags__name='t4')),
+            [repr(i) for i in Item.objects.filter(~~Q(tags__name='t4'))])
+        self.assertQuerysetEqual(
+            Item.objects.filter(Q(tags__name='t4')),
+            [repr(i) for i in Item.objects.filter(~Q(~Q(tags__name='t4')))])
+
+    @unittest.expectedFailure
+    def test_exclude_in(self):
+        self.assertQuerysetEqual(
+            Item.objects.exclude(Q(tags__name__in=['t4', 't3'])),
+            [repr(i) for i in Item.objects.filter(~Q(tags__name__in=['t4', 't3']))])
+        self.assertQuerysetEqual(
+            Item.objects.filter(Q(tags__name__in=['t4', 't3'])),
+            [repr(i) for i in Item.objects.filter(~~Q(tags__name__in=['t4', 't3']))])
+
 class Queries2Tests(TestCase):
     def setUp(self):
         Number.objects.create(num=4)
@@ -1321,10 +1355,31 @@ class NullableRelOrderingTests(TestCase):
     def test_ticket10028(self):
         # Ordering by model related to nullable relations(!) should use outer
         # joins, so that all results are included.
-        _ = Plaything.objects.create(name="p1")
+        Plaything.objects.create(name="p1")
         self.assertQuerysetEqual(
             Plaything.objects.all(),
             ['<Plaything: p1>']
+        )
+
+    def test_join_already_in_query(self):
+        # Ordering by model related to nullable relations should not change
+        # the join type of already existing joins.
+        Plaything.objects.create(name="p1")
+        s = SingleObject.objects.create(name='s')
+        r = RelatedObject.objects.create(single=s)
+        Plaything.objects.create(name="p2", others=r)
+        qs = Plaything.objects.all().filter(others__isnull=False).order_by('pk')
+        self.assertTrue('INNER' in str(qs.query))
+        qs = qs.order_by('others__single__name')
+        # The ordering by others__single__pk will add one new join (to single)
+        # and that join must be LEFT join. The already existing join to related
+        # objects must be kept INNER. So, we have both a INNER and a LEFT join
+        # in the query.
+        self.assertTrue('LEFT' in str(qs.query))
+        self.assertTrue('INNER' in str(qs.query))
+        self.assertQuerysetEqual(
+            qs,
+            ['<Plaything: p2>']
         )
 
 
@@ -1398,12 +1453,12 @@ class Queries6Tests(TestCase):
         # Test that parallel iterators work.
         qs = Tag.objects.all()
         i1, i2 = iter(qs), iter(qs)
-        self.assertEqual(repr(i1.next()), '<Tag: t1>')
-        self.assertEqual(repr(i1.next()), '<Tag: t2>')
-        self.assertEqual(repr(i2.next()), '<Tag: t1>')
-        self.assertEqual(repr(i2.next()), '<Tag: t2>')
-        self.assertEqual(repr(i2.next()), '<Tag: t3>')
-        self.assertEqual(repr(i1.next()), '<Tag: t3>')
+        self.assertEqual(repr(next(i1)), '<Tag: t1>')
+        self.assertEqual(repr(next(i1)), '<Tag: t2>')
+        self.assertEqual(repr(next(i2)), '<Tag: t1>')
+        self.assertEqual(repr(next(i2)), '<Tag: t2>')
+        self.assertEqual(repr(next(i2)), '<Tag: t3>')
+        self.assertEqual(repr(next(i1)), '<Tag: t3>')
 
         qs = X.objects.all()
         self.assertEqual(bool(qs), False)
@@ -1952,3 +2007,15 @@ class EmptyStringsAsNullTest(TestCase):
             DumbCategory.objects.exclude(namedcategory__name__in=['nonexisting']),
             [self.nc.pk], attrgetter('pk')
         )
+
+class ProxyQueryCleanupTest(TestCase):
+    def test_evaluated_proxy_count(self):
+        """
+        Test that generating the query string doesn't alter the query's state
+        in irreversible ways. Refs #18248.
+        """
+        ProxyCategory.objects.create()
+        qs = ProxyCategory.objects.all()
+        self.assertEqual(qs.count(), 1)
+        str(qs.query)
+        self.assertEqual(qs.count(), 1)

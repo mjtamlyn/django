@@ -7,13 +7,10 @@ import sys
 import time
 import warnings
 
+from io import BytesIO
 from pprint import pformat
 from urllib import urlencode, quote
 from urlparse import urljoin, parse_qsl
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
 
 import Cookie
 # Some versions of Python 2.7 and later won't need this encoding bug fix:
@@ -21,7 +18,7 @@ _cookie_encodes_correctly = Cookie.SimpleCookie().value_encode(';') == (';', '"\
 # See ticket #13007, http://bugs.python.org/issue2193 and http://trac.edgewall.org/ticket/2256
 _tc = Cookie.SimpleCookie()
 try:
-    _tc.load('foo:bar=1')
+    _tc.load(b'foo:bar=1')
     _cookie_allows_colon_in_names = True
 except Cookie.CookieError:
     _cookie_allows_colon_in_names = False
@@ -292,7 +289,7 @@ class HttpRequest(object):
                 self._body = self.read()
             except IOError as e:
                 raise UnreadablePostError, e, sys.exc_traceback
-            self._stream = StringIO(self._body)
+            self._stream = BytesIO(self._body)
         return self._body
 
     @property
@@ -317,7 +314,7 @@ class HttpRequest(object):
         if self.META.get('CONTENT_TYPE', '').startswith('multipart'):
             if hasattr(self, '_body'):
                 # Use already read data
-                data = StringIO(self._body)
+                data = BytesIO(self._body)
             else:
                 data = self
             try:
@@ -340,7 +337,7 @@ class HttpRequest(object):
     ## Expects self._stream to be set to an appropriate source of bytes by
     ## a corresponding request subclass (e.g. WSGIRequest).
     ## Also when request data has already been read by request.POST or
-    ## request.body, self._stream points to a StringIO instance
+    ## request.body, self._stream points to a BytesIO instance
     ## containing that data.
 
     def read(self, *args, **kwargs):
@@ -653,8 +650,8 @@ class HttpResponse(object):
 
     def _get_content(self):
         if self.has_header('Content-Encoding'):
-            return ''.join([str(e) for e in self._container])
-        return ''.join([smart_str(e, self._charset) for e in self._container])
+            return b''.join([str(e) for e in self._container])
+        return b''.join([smart_str(e, self._charset) for e in self._container])
 
     def _set_content(self, value):
         if hasattr(value, '__iter__'):
@@ -671,7 +668,7 @@ class HttpResponse(object):
         return self
 
     def next(self):
-        chunk = self._iterator.next()
+        chunk = next(self._iterator)
         if isinstance(chunk, unicode):
             chunk = chunk.encode(self._charset)
         return str(chunk)

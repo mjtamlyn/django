@@ -10,10 +10,7 @@ import os
 import re
 import urlparse
 from decimal import Decimal, DecimalException
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+from io import BytesIO
 
 from django.core import validators
 from django.core.exceptions import ValidationError
@@ -449,7 +446,7 @@ class RegexField(CharField):
 
     def _set_regex(self, regex):
         if isinstance(regex, basestring):
-            regex = re.compile(regex)
+            regex = re.compile(regex, re.UNICODE)
         self._regex = regex
         if hasattr(self, '_regex_validator') and self._regex_validator in self.validators:
             self.validators.remove(self._regex_validator)
@@ -554,9 +551,9 @@ class ImageField(FileField):
             file = data.temporary_file_path()
         else:
             if hasattr(data, 'read'):
-                file = StringIO(data.read())
+                file = BytesIO(data.read())
             else:
-                file = StringIO(data['content'])
+                file = BytesIO(data['content'])
 
         try:
             # load() is the only method that can spot a truncated JPEG,
@@ -935,12 +932,16 @@ class FilePathField(ChoiceField):
                             self.choices.append((f, f.replace(path, "", 1)))
                 if self.allow_folders:
                     for f in dirs:
+                        if f == '__pycache__':
+                            continue
                         if self.match is None or self.match_re.search(f):
                             f = os.path.join(root, f)
                             self.choices.append((f, f.replace(path, "", 1)))
         else:
             try:
                 for f in sorted(os.listdir(self.path)):
+                    if f == '__pycache__':
+                        continue
                     full_file = os.path.join(self.path, f)
                     if (((self.allow_files and os.path.isfile(full_file)) or
                         (self.allow_folders and os.path.isdir(full_file))) and

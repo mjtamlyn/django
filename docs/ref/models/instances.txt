@@ -135,7 +135,7 @@ Saving objects
 
 To save an object back to the database, call ``save()``:
 
-.. method:: Model.save([force_insert=False, force_update=False, using=DEFAULT_DB_ALIAS])
+.. method:: Model.save([force_insert=False, force_update=False, using=DEFAULT_DB_ALIAS, update_fields=None])
 
 .. versionadded:: 1.2
    The ``using`` argument was added.
@@ -289,6 +289,8 @@ almost always do the right thing and trying to override that will lead to
 errors that are difficult to track down. This feature is for advanced use
 only.
 
+Using ``update_fields`` will force an update similarly to ``force_update``.
+
 Updating attributes based on existing fields
 --------------------------------------------
 
@@ -333,6 +335,26 @@ the actual value that was applied to the updated field::
 For more details, see the documentation on :ref:`F() expressions
 <query-expressions>` and their :ref:`use in update queries
 <topics-db-queries-update>`.
+
+Specifying which fields to save
+-------------------------------
+
+.. versionadded:: 1.5
+
+If ``save()`` is passed a list of field names in keyword argument
+``update_fields``, only the fields named in that list will be updated.
+This may be desirable if you want to update just one or a few fields on
+an object. There will be a slight performance benefit from preventing
+all of the model fields from being updated in the database. For example:
+
+    product.name = 'Name changed again'
+    product.save(update_fields=['name'])
+
+The ``update_fields`` argument can be any iterable containing strings. An
+empty ``update_fields`` iterable will skip the save. A value of None will
+perform an update on all fields.
+
+Specifying ``update_fields`` will force an update.
 
 Deleting objects
 ================
@@ -550,25 +572,29 @@ might have some of the following methods:
 
 For every field that has :attr:`~django.db.models.Field.choices` set, the
 object will have a ``get_FOO_display()`` method, where ``FOO`` is the name of
-the field. This method returns the "human-readable" value of the field. For
-example, in the following model::
+the field. This method returns the "human-readable" value of the field.
 
-    GENDER_CHOICES = (
-        ('M', 'Male'),
-        ('F', 'Female'),
-    )
-    class Person(models.Model):
-        name = models.CharField(max_length=20)
-        gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
+For example::
 
-...each ``Person`` instance will have a ``get_gender_display()`` method. Example::
+        from django.db import models
 
-    >>> p = Person(name='John', gender='M')
-    >>> p.save()
-    >>> p.gender
-    'M'
-    >>> p.get_gender_display()
-    'Male'
+        class Person(models.Model):
+            SHIRT_SIZES = (
+                (u'S', u'Small'),
+                (u'M', u'Medium'),
+                (u'L', u'Large'),
+            )
+            name = models.CharField(max_length=60)
+            shirt_size = models.CharField(max_length=2, choices=SHIRT_SIZES)
+
+    ::
+
+        >>> p = Person(name="Fred Flintstone", shirt_size="L")
+        >>> p.save()
+        >>> p.shirt_size
+        u'L'
+        >>> p.get_shirt_size_display()
+        u'Large'
 
 .. method:: Model.get_next_by_FOO(\**kwargs)
 .. method:: Model.get_previous_by_FOO(\**kwargs)

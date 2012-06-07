@@ -66,7 +66,7 @@ class CycleNode(Node):
             # First time the node is rendered in template
             context.render_context[self] = itertools_cycle(self.cyclevars)
         cycle_iter = context.render_context[self]
-        value = cycle_iter.next().resolve(context)
+        value = next(cycle_iter).resolve(context)
         if self.variable_name:
             context[self.variable_name] = value
         if self.silent:
@@ -328,9 +328,8 @@ class SsiNode(Node):
             else:
                 return '' # Fail silently for invalid includes.
         try:
-            fp = open(filepath, 'r')
-            output = fp.read()
-            fp.close()
+            with open(filepath, 'r') as fp:
+                output = fp.read()
         except IOError:
             output = ''
         if self.parsed:
