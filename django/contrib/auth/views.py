@@ -95,8 +95,6 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, 
     form_class = AuthenticationForm
     template_name = 'registration/login.html'
 
-    extra_context = None
-
     default_redirect_to = settings.LOGIN_REDIRECT_URL
 
     @method_decorator(sensitive_post_parameters())
@@ -124,22 +122,18 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, 
     def get_context_data(self, **kwargs):
         context = super(LoginView, self).get_context_data(**kwargs)
         context[self.get_redirect_field_name()] = self.get_success_url()
-        context.update(self.extra_context or {})
         return context
 
 
-class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin generic.TemplateView):
+class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
     """
     Log out the user and display 'You are logged out' message.
     """
     template_name = 'registration/logged_out.html'
 
-    extra_context = None
-
     def get_context_data(self, **kwargs):
         context = super(LogoutView, self).get_context_data(**kwargs)
         context['title'] = _('Logged out')
-        context.update(self.extra_context or {})
         return context
 
     def get(self, request, *args, **kwargs):
@@ -182,8 +176,6 @@ class PasswordResetView(CurrentAppMixin, generic.FormView):
     token_generator = default_token_generator
     from_email = None
 
-    extra_context = None
-
     def form_valid(self, form):
         opts = {
             'use_https': self.request.is_secure(),
@@ -198,11 +190,6 @@ class PasswordResetView(CurrentAppMixin, generic.FormView):
         form.save(**opts)
         return super(PasswordResetView, self).form_valid(form)
 
-    def get_context_data(self, **kwargs):
-        context = super(PasswordResetView, self).get_context_data(**kwargs)
-        context.update(self.extra_context or {})
-        return context
-
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
         return super(PasswordResetView, self).dispatch(request, *args, **kwargs)
@@ -213,12 +200,6 @@ class PasswordResetDoneView(CurrentAppMixin, generic.TemplateView):
     Show a confirmation message that a password reset email has been sent.
     """
     template_name = "registration/password_reset_done.html"
-
-    extra_context = None
-
-    def get_context_data(self):
-        # XXX: does this work?
-        return self.extra_context
 
 
 class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
@@ -234,7 +215,6 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
     success_url = reverse_lazy('django.contrib.auth.views.password_reset_complete')
 
     token_generator = default_token_generator
-    extra_context = None
 
     def get_object(self, queryset=None):
         try:
@@ -260,7 +240,6 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
     def get_context_data(self, **kwargs):
         context = super(PasswordResetConfirmView, self).get_context_data(**kwargs)
         context['validlink'] = self.object is not None
-        context.update(self.extra_context or {})
         return context
 
     # Doesn't need csrf_protect since no-one can guess the URL
@@ -276,12 +255,9 @@ class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
     """
     template_name = "registration/password_reset_complete.html"
 
-    extra_context = None
-
     def get_context_data(self, **kwargs):
         context = super(PasswordResetComplete, self).get_context_data(**kwargs)
         context['login_url'] = settings.LOGIN_URL
-        context.update(self.extra_context or {})
         return context
 
 
@@ -293,8 +269,6 @@ class PasswordChangeView(CurrentAppMixin, generic.UpdateView):
     template_name = "registration/password_change_form.html"
     success_url = reverse_lazy('django.contrib.auth.views.password_change_done')
     form_class = PasswordChangeForm
-
-    extra_context = None
 
     def get_object(self, queryset=None):
         return self.request.user
@@ -318,13 +292,6 @@ class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
     """
     template_name = "registration/password_change_done.html"
 
-    extra_context = None
-
-    def get_context_data(self, **kwargs):
-        context = super(PasswordChangeDoneView, self).get_context_data(**kwargs)
-        context.update(self.extra_context or {})
-        return context
-
     @method_decorator(login_required)
     def dispatch(self, request, *args, **kwargs):
         return super(PasswordChangeDoneView, self).dispatch(request, *args, **kwargs)
@@ -342,6 +309,16 @@ class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
 # password_change
 # password_change_done
 
+def add_extra_context(cbv, **kwargs):
+    extra_context = kwargs.pop('extra_context', {})
+    class Wrapped(cbv):
+        def get_context_data(self, **kwargs):
+            context = super(cbv, self).get_context_data(**kwargs)
+            context.update(extra_context)
+            return context
+
+    return Wrapped.as_view(**kwargs)
+
 def login(request, template_name=None, redirect_field_name=None,
           authentication_form=None, current_app=None, extra_context=None):
     kwargs = {}
@@ -357,7 +334,7 @@ def login(request, template_name=None, redirect_field_name=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    view = LoginView.as_view(**kwargs)
+    view = add_extra_context(LoginView, **kwargs)
     return view(request)
 
 def logout(request, next_page=None, template_name=None,
@@ -375,7 +352,7 @@ def logout(request, next_page=None, template_name=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    view = LogoutView.as_view(**kwargs)
+    view = add_extra_context(LogoutView, **kwargs)
     return view(request)
 
 def logout_then_login(request, login_url=None, current_app=None, extra_context=None):
@@ -390,7 +367,7 @@ def logout_then_login(request, login_url=None, current_app=None, extra_context=N
         kwargs["current_app"] = current_app
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
-    view = LogoutThenLoginView.as_view(**kwargs)
+    view = add_extra_context(LogoutThenLoginView, **kwargs)
     return view(request)
 
 def redirect_to_login(next, login_url=None,
@@ -435,7 +412,7 @@ def password_reset(request, is_admin_site=None, template_name=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    password_reset = PasswordResetView.as_view(**kwargs)
+    password_reset = add_extra_context(PasswordResetView, **kwargs)
     return password_reset(request)
 
 def password_reset_done(request, template_name=None, current_app=None,
@@ -449,7 +426,7 @@ def password_reset_done(request, template_name=None, current_app=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    password_reset_done = PasswordResetDoneView.as_view(**kwargs)
+    password_reset_done = add_extra_context(PasswordResetDoneView, **kwargs)
     return password_reset_done(request)
 
 def password_reset_confirm(request, uidb36=None, token=None,
@@ -476,7 +453,7 @@ def password_reset_confirm(request, uidb36=None, token=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    password_reset_confirm = PasswordResetConfirmView.as_view(**kwargs)
+    password_reset_confirm = add_extra_context(PasswordResetConfirmView, **kwargs)
     return password_reset_confirm(request, uidb36=uidb36, token=token)
 
 def password_reset_complete(request, template_name=None, current_app=None,
@@ -490,7 +467,7 @@ def password_reset_complete(request, template_name=None, current_app=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    password_reset_complete = PasswordResetComplete.as_view(**kwargs)
+    password_reset_complete = add_extra_context(PasswordResetComplete, **kwargs)
     return password_reset_complete(request)
 
 def password_change(request, template_name=None, post_change_redirect=None,
@@ -509,7 +486,7 @@ def password_change(request, template_name=None, post_change_redirect=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    password_change = PasswordChangeView.as_view(**kwargs)
+    password_change = add_extra_context(PasswordChangeView, **kwargs)
     return password_change(request)
 
 def password_change_done(request, template_name=None, current_app=None,
@@ -523,5 +500,5 @@ def password_change_done(request, template_name=None, current_app=None,
     if extra_context is not None:
         kwargs["extra_context"] = extra_context
 
-    password_change_done = PasswordChangeDoneView.as_view(**kwargs)
+    password_change_done = add_extra_context(PasswordChangeDoneView, **kwargs)
     return password_change_done(request)
