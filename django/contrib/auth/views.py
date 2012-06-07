@@ -77,7 +77,7 @@ class ProtectectedRedirectToMixin(RedirectToMixin):
 
 class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
     """
-    Displays the login form and handles the login action.
+    Display the login form and handle the login action.
     """
     form_class = AuthenticationForm
     template_name = 'registration/login.html'
@@ -100,6 +100,7 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
         return kwargs
 
     def form_valid(self, form):
+        """Log the user in and redirect."""
         auth_login(self.request, form.get_user())
 
         if self.request.session.test_cookie_worked():
@@ -123,7 +124,7 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
 
 class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.TemplateView):
     """
-    Logs out the user and displays 'You are logged out' message.
+    Log out the user and display 'You are logged out' message.
     """
     template_name = 'registration/logged_out.html'
 
@@ -158,7 +159,7 @@ class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.TemplateV
 
 class LogoutThenLoginView(LogoutView):
     """
-    Logs out the user if he is logged in. Then redirects to the log-in page.
+    Log out the user if he is logged in. Then redirects to the log-in page.
     """
     login_url = None
 
@@ -386,6 +387,9 @@ def logout(request, next_page=None, template_name=None,
     return view(request)
 
 def logout_then_login(request, login_url=None, current_app=None, extra_context=None):
+    """
+    Logs out the user if he is logged in. Then redirects to the log-in page.
+    """
     kwargs = {}
 
     if login_url is not None:
@@ -460,6 +464,10 @@ def password_reset_confirm(request, uidb36=None, token=None,
                            template_name=None, token_generator=None,
                            set_password_form=None, post_reset_redirect=None,
                            current_app=None, extra_context=None):
+    """
+    View that checks the hash in a password reset link and presents a
+    form for entering a new password.
+    """
     assert uidb36 is not None and token is not None  # checked by URLconf
     kwargs = {}
 
