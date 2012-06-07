@@ -36,6 +36,19 @@ class CurrentAppMixin(object):
         )
 
 
+class CurrentSiteMixin(object):
+    """Add the current site to the context."""
+    def get_context_data(self, **kwargs):
+        context = super(CurrentSiteMixin, self).get_context_data(**kwargs)
+
+        current_site = get_current_site(self.request)
+        context.update({
+            "site": current_site,
+            "site_name": current_site.name,
+        })
+        return context
+
+
 class RedirectToMixin(object):
     """
     Provide a success_url that takes into account a request parameter (whose
@@ -75,14 +88,13 @@ class ProtectectedRedirectToMixin(RedirectToMixin):
         return not netloc or netloc == self.request.get_host()
 
 
-class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
+class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, generic.FormView):
     """
     Display the login form and handle the login action.
     """
     form_class = AuthenticationForm
     template_name = 'registration/login.html'
 
-    current_app = None
     extra_context = None
 
     default_redirect_to = settings.LOGIN_REDIRECT_URL
@@ -96,7 +108,7 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
 
     def get_form_kwargs(self):
         kwargs = super(LoginView, self).get_form_kwargs()
-        kwargs.update({"request": self.request})
+        kwargs["request"] = self.request
         return kwargs
 
     def form_valid(self, form):
@@ -111,35 +123,22 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
 
     def get_context_data(self, **kwargs):
         context = super(LoginView, self).get_context_data(**kwargs)
-        current_site = get_current_site(self.request)
-        context.update({
-            self.get_redirect_field_name(): self.get_success_url(),
-            "site": current_site,
-            "site_name": current_site.name,
-        })
-
+        context[self.get_redirect_field_name()] = self.get_success_url()
         context.update(self.extra_context or {})
-
         return context
 
 
-class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.TemplateView):
+class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin generic.TemplateView):
     """
     Log out the user and display 'You are logged out' message.
     """
     template_name = 'registration/logged_out.html'
 
-    current_app = None
     extra_context = None
 
     def get_context_data(self, **kwargs):
         context = super(LogoutView, self).get_context_data(**kwargs)
-        current_site = get_current_site(self.request)
-        context.update({
-            'site': current_site,
-            'site_name': current_site.name,
-            'title': _('Logged out')
-        })
+        context['title'] = _('Logged out')
         context.update(self.extra_context or {})
         return context
 
@@ -182,7 +181,7 @@ class PasswordResetView(CurrentAppMixin, generic.FormView):
     subject_template_name = "registration/password_reset_subject.txt"
     token_generator = default_token_generator
     from_email = None
-    current_app = None
+
     extra_context = None
 
     def form_valid(self, form):
@@ -215,7 +214,6 @@ class PasswordResetDoneView(CurrentAppMixin, generic.TemplateView):
     """
     template_name = "registration/password_reset_done.html"
 
-    current_app = None
     extra_context = None
 
     def get_context_data(self):
@@ -236,7 +234,6 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
     success_url = reverse_lazy('django.contrib.auth.views.password_reset_complete')
 
     token_generator = default_token_generator
-    current_app = None
     extra_context = None
 
     def get_object(self, queryset=None):
@@ -262,9 +259,7 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super(PasswordResetConfirmView, self).get_context_data(**kwargs)
-        context.update({
-            'validlink': self.object is not None
-        })
+        context['validlink'] = self.object is not None
         context.update(self.extra_context or {})
         return context
 
@@ -281,7 +276,6 @@ class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
     """
     template_name = "registration/password_reset_complete.html"
 
-    current_app = None
     extra_context = None
 
     def get_context_data(self, **kwargs):
@@ -300,7 +294,6 @@ class PasswordChangeView(CurrentAppMixin, generic.UpdateView):
     success_url = reverse_lazy('django.contrib.auth.views.password_change_done')
     form_class = PasswordChangeForm
 
-    current_app = None
     extra_context = None
 
     def get_object(self, queryset=None):
@@ -325,7 +318,6 @@ class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
     """
     template_name = "registration/password_change_done.html"
 
-    current_app = None
     extra_context = None
 
     def get_context_data(self, **kwargs):
