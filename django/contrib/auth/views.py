@@ -22,7 +22,7 @@ from django.contrib.sites.models import get_current_site
 
 class CurrentAppMixin(object):
     """
-    Add a current_app property on the view and pass it to the response class.
+    Add a current_app attribute on the view and pass it to the response class.
     """
     current_app = None
 
