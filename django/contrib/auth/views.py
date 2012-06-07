@@ -63,16 +63,16 @@ class ProtectectedRedirectToMixin(RedirectToMixin):
     """
     def get_success_url(self):
         redirect_to = super(ProtectectedRedirectToMixin, self).get_success_url()
-
-        if not redirect_to:
+        if self.is_valid_url(redirect_to):
             return redirect_to
+        else:
+            return self.get_default_redirect_to()
 
-        netloc = urlparse.urlparse(redirect_to)[1]
-
-        if not netloc or netloc == self.request.get_host():
-            return redirect_to
-
-        return self.get_default_redirect_to()
+    def is_valid_url(self, url, allow_empty=True):
+        if not url:
+            return allow_empty
+        netloc = urlparse.urlparse(url)[1]
+        return not netloc or netloc == self.request.get_host()
 
 
 class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
@@ -106,6 +106,7 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, generic.FormView):
         if self.request.session.test_cookie_worked():
             self.request.session.delete_test_cookie()
 
+        # Redirect
         return super(LoginView, self).form_valid(form)
 
     def get_context_data(self, **kwargs):
@@ -161,11 +162,10 @@ class LogoutThenLoginView(LogoutView):
     """
     Log out the user if he is logged in. Then redirects to the log-in page.
     """
-    login_url = None
+    success_url = None
 
-    @property
-    def next_page(self):
-        return self.login_url or settings.LOGIN_URL
+    def get_success_url(self):
+        return self.success_url or settings.LOGIN_URL
 
 
 class PasswordResetView(CurrentAppMixin, generic.FormView):
@@ -393,7 +393,7 @@ def logout_then_login(request, login_url=None, current_app=None, extra_context=N
     kwargs = {}
 
     if login_url is not None:
-        kwargs["login_url"] = login_url
+        kwargs["success_url"] = login_url
     if current_app is not None:
         kwargs["current_app"] = current_app
     if extra_context is not None:
