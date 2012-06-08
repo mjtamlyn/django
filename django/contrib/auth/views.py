@@ -188,7 +188,7 @@ class PasswordResetDoneView(CurrentAppMixin, generic.TemplateView):
     template_name = "registration/password_reset_done.html"
 
 
-class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
+class PasswordResetConfirmView(CurrentAppMixin, generic.FormView):
     # XXX: This one might have some backwards-compatibility issues in some corner cases.
     # In this CBV, form.user is a User instance if the token matches the uidb36,
     # even in the GET request, as opposed to the old view where form.user was
@@ -204,7 +204,7 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
 
     token_generator = default_token_generator
 
-    def get_object(self, queryset=None):
+    def get_user(self):
         try:
             pk = base36_to_int(self.kwargs['uidb36'])
             user = User.objects.get(pk=pk)
@@ -217,24 +217,32 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
 
     def get_form_kwargs(self):
         kwargs = super(PasswordResetConfirmView, self).get_form_kwargs()
-        kwargs['user'] = kwargs.pop('instance')
+        kwargs['user'] = self.user
         return kwargs
 
     def form_valid(self, form):
-        if self.object is None:
-            return self.form_invalid(form)
+        form.save()
         return super(PasswordResetConfirmView, self).form_valid(form)
 
     def get_context_data(self, **kwargs):
         context = super(PasswordResetConfirmView, self).get_context_data(**kwargs)
-        context['validlink'] = self.object is not None
+        context['validlink'] = self.user is not None
         return context
 
     # Doesn't need csrf_protect since no-one can guess the URL
     @method_decorator(sensitive_post_parameters())
     @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):
+        self.user = self.get_user()
         return super(PasswordResetConfirmView, self).dispatch(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        if self.user is not None and form.is_valid():
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
 
 
 class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
@@ -247,7 +255,7 @@ class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
         return context
 
 
-class PasswordChangeView(CurrentAppMixin, generic.UpdateView):
+class PasswordChangeView(CurrentAppMixin, generic.FormView):
     """
     Prompt the logged-in user for their current password as well as a new one.
     If the current password is valid, change it to the new one.
@@ -257,14 +265,15 @@ class PasswordChangeView(CurrentAppMixin, generic.UpdateView):
     success_url = reverse_lazy('django.contrib.auth.views.password_change_done')
     form_class = PasswordChangeForm
 
-    def get_object(self, queryset=None):
-        return self.request.user
-
     def get_form_kwargs(self):
         kwargs = super(PasswordChangeView, self).get_form_kwargs()
-        kwargs['user'] = kwargs.pop('instance')
+        kwargs['user'] = self.request.user
 
         return kwargs
+
+    def form_valid(self, form):
+        form.save()
+        return super(PasswordChangeView, self).form_valid(form)
 
     @method_decorator(sensitive_post_parameters())
     @method_decorator(csrf_protect)
