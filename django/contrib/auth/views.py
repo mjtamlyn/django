@@ -235,14 +235,6 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.FormView):
     def dispatch(self, request, *args, **kwargs):
         self.user = self.get_user()
         return super(PasswordResetConfirmView, self).dispatch(request, *args, **kwargs)
-    
-    def post(self, request, *args, **kwargs):
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        if self.user is not None and form.is_valid():
-            return self.form_valid(form)
-        else:
-            return self.form_invalid(form)
 
 
 class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):

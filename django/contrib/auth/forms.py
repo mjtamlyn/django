@@ -266,6 +266,9 @@ class SetPasswordForm(forms.Form):
             self.user.save()
         return self.user
 
+    def is_valid(self):
+        return self.user and super(SetPasswordForm, self).is_valid()
+
 
 class PasswordChangeForm(SetPasswordForm):
     """
