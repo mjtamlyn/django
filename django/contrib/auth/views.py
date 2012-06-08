@@ -49,7 +49,8 @@ class CurrentSiteMixin(object):
         return context
 
 
-def is_valid_redirect(url, request, allow_empty=False):
+def is_valid_redirect(url, request, allow_empty=False): # XXX: Name?
+    """"Validate that the given URL is on the same host as the given request."""
     if not url:
         return allow_empty
     netloc = urlparse.urlparse(url)[1]
