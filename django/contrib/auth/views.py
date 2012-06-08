@@ -49,53 +49,21 @@ class CurrentSiteMixin(object):
         return context
 
 
-class RedirectToMixin(object):
-    """
-    Provide a success_url that takes into account a request parameter (whose
-    name is configurable).
-    In the absence of this parameter, a (configurable) default URL is used.
-    """
-    redirect_field_name = REDIRECT_FIELD_NAME
-    default_redirect_to = None
-
-    def get_redirect_field_name(self):
-        return self.redirect_field_name
-
-    def get_default_redirect_to(self):
-        return self.default_redirect_to
-
-    def get_success_url(self):
-        default = self.get_default_redirect_to()
-        redirect_to = self.request.REQUEST.get(self.get_redirect_field_name())
-        return redirect_to or default
+def is_valid_redirect(url, request, allow_empty=False):
+    if not url:
+        return allow_empty
+    netloc = urlparse.urlparse(url)[1]
+    return not netloc or netloc == request.get_host()
 
 
-class ProtectectedRedirectToMixin(RedirectToMixin):
-    """
-    Ensure the URL to be redirected to is on the same host.
-    """
-    def get_success_url(self):
-        redirect_to = super(ProtectectedRedirectToMixin, self).get_success_url()
-        if self.is_valid_url(redirect_to):
-            return redirect_to
-        else:
-            return self.get_default_redirect_to()
-
-    def is_valid_url(self, url, allow_empty=True):
-        if not url:
-            return allow_empty
-        netloc = urlparse.urlparse(url)[1]
-        return not netloc or netloc == self.request.get_host()
-
-
-class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, generic.FormView):
+class LoginView(CurrentAppMixin, CurrentSiteMixin, generic.FormView):
     """
     Display the login form and handle the login action.
     """
     form_class = AuthenticationForm
     template_name = 'registration/login.html'
 
-    default_redirect_to = settings.LOGIN_REDIRECT_URL
+    redirect_field_name = REDIRECT_FIELD_NAME
 
     @method_decorator(sensitive_post_parameters())
     @method_decorator(csrf_protect)
@@ -118,35 +86,55 @@ class LoginView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, 
 
         # Redirect
         return super(LoginView, self).form_valid(form)
+    
+    def get_success_url(self):
+        redir = self.request.REQUEST.get(self.redirect_field_name)
+        if not is_valid_redirect(redir, self.request, allow_empty=False):
+            redir = settings.LOGIN_REDIRECT_URL
+        return redir
 
     def get_context_data(self, **kwargs):
         context = super(LoginView, self).get_context_data(**kwargs)
-        context[self.get_redirect_field_name()] = self.get_success_url()
+        context[self.redirect_field_name] = self.get_success_url()
         return context
 
 
-class LogoutView(ProtectectedRedirectToMixin, CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
+class LogoutView(CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
     """
     Log out the user and display 'You are logged out' message.
     """
     template_name = 'registration/logged_out.html'
+    redirect_field_name = REDIRECT_FIELD_NAME
+    success_url = None
 
     def get_context_data(self, **kwargs):
         context = super(LogoutView, self).get_context_data(**kwargs)
         context['title'] = _('Logged out')
         return context
 
+    def get_success_url(self):
+        """Look for a url to redirect to in the request parameters.
+        If none is found, or if it's not valid, fall back on the
+        view instance's success_url attribute.
+        If that attribute has not been set (None), then return None.
+        If it has but it's empty, return the current request's path."""
+        redir = self.request.REQUEST.get(self.redirect_field_name)
+        if is_valid_redirect(redir, self.request, allow_empty=False):
+            return redir
+        elif self.success_url is not None:
+            return self.success_url or self.request.path
+        else:
+            return None
+
     def get(self, request, *args, **kwargs):
         auth_logout(request)
-        redirect_to = self.get_success_url()
+        redir = self.get_success_url()
 
-        if redirect_to is not None:
-            # Redirect to the current page if no default has been provided
-            redirect_to = redirect_to or self.request.path
-            return HttpResponseRedirect(redirect_to)
-
-        # Render the template
-        return super(LogoutView, self).get(request, *args, **kwargs)
+        if redir is not None:
+            return HttpResponseRedirect(redir)
+        else:
+            # Render the template
+            return super(LogoutView, self).get(request, *args, **kwargs)
 
     # XXX: define post(), put(), ... ?
 
@@ -155,10 +143,7 @@ class LogoutThenLoginView(LogoutView):
     """
     Log out the user if he is logged in. Then redirects to the log-in page.
     """
-    success_url = None
-
-    def get_success_url(self):
-        return self.success_url or settings.LOGIN_URL
+    success_url = settings.LOGIN_URL
 
 
 class PasswordResetView(CurrentAppMixin, generic.FormView):
