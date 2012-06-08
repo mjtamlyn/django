@@ -21,9 +21,7 @@ from django.contrib.sites.models import get_current_site
 
 
 class CurrentAppMixin(object):
-    """
-    Add a current_app attribute on the view and pass it to the response class.
-    """
+    """Add a current_app attribute on the view and pass it to the response class."""
     current_app = None
 
     def render_to_response(self, context, **response_kwargs):
@@ -58,9 +56,7 @@ def is_valid_redirect(url, request, allow_empty=False): # XXX: Name?
 
 
 class LoginView(CurrentAppMixin, CurrentSiteMixin, generic.FormView):
-    """
-    Display the login form and handle the login action.
-    """
+    """Display the login form and handle the login action."""
     form_class = AuthenticationForm
     template_name = 'registration/login.html'
 
@@ -89,6 +85,11 @@ class LoginView(CurrentAppMixin, CurrentSiteMixin, generic.FormView):
         return super(LoginView, self).form_valid(form)
     
     def get_success_url(self):
+        """
+        Look for a redirect URL in the request parameters.
+        If none is found, or if it's not valid, use settings.LOGIN_REDIRECT_URL.
+
+        """
         redir = self.request.REQUEST.get(self.redirect_field_name)
         if not is_valid_redirect(redir, self.request, allow_empty=False):
             redir = settings.LOGIN_REDIRECT_URL
@@ -101,9 +102,7 @@ class LoginView(CurrentAppMixin, CurrentSiteMixin, generic.FormView):
 
 
 class LogoutView(CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
-    """
-    Log out the user and display 'You are logged out' message.
-    """
+    """Log out the user and display 'You are logged out' message."""
     template_name = 'registration/logged_out.html'
     redirect_field_name = REDIRECT_FIELD_NAME
     success_url = None
@@ -114,11 +113,14 @@ class LogoutView(CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
         return context
 
     def get_success_url(self):
-        """Look for a url to redirect to in the request parameters.
+        """
+        Look for a url to redirect to in the request parameters.
         If none is found, or if it's not valid, fall back on the
         view instance's success_url attribute.
         If that attribute has not been set (None), then return None.
-        If it has but it's empty, return the current request's path."""
+        If it has but it's empty, return the current request's path.
+
+        """
         redir = self.request.REQUEST.get(self.redirect_field_name)
         if is_valid_redirect(redir, self.request, allow_empty=False):
             return redir
@@ -141,9 +143,7 @@ class LogoutView(CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
 
 
 class LogoutThenLoginView(LogoutView):
-    """
-    Log out the user if he is logged in. Then redirects to the log-in page.
-    """
+    """Log out the user if he is logged in. Then redirects to the log-in page."""
     success_url = settings.LOGIN_URL
 
 
@@ -151,6 +151,7 @@ class PasswordResetView(CurrentAppMixin, generic.FormView):
     """
     Ask for the user's email address and send a message containing a token
     allowing to reset the user's password.
+
     """
     template_name = "registration/password_reset_form.html"
     form_class = PasswordResetForm
@@ -182,9 +183,7 @@ class PasswordResetView(CurrentAppMixin, generic.FormView):
 
 
 class PasswordResetDoneView(CurrentAppMixin, generic.TemplateView):
-    """
-    Show a confirmation message that a password reset email has been sent.
-    """
+    """Show a confirmation message that a password reset email has been sent."""
     template_name = "registration/password_reset_done.html"
 
 
@@ -194,7 +193,9 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
     # even in the GET request, as opposed to the old view where form.user was
     # only set in POST).
     """
-    Check that the given token is valid then prompt the user for a new pasword.
+    Check that the given token is valid and prompt the user for a new pasword.
+    Then update the user's password with this new one.
+
     """
     template_name = "registration/password_reset_confirm.html"
     form_class = SetPasswordForm
@@ -236,9 +237,7 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.UpdateView):
 
 
 class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
-    """
-    Show a confirmation message that the user's password has been reset.
-    """
+    """Show a confirmation message that the user's password has been reset."""
     template_name = "registration/password_reset_complete.html"
 
     def get_context_data(self, **kwargs):
@@ -249,8 +248,9 @@ class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
 
 class PasswordChangeView(CurrentAppMixin, generic.UpdateView):
     """
-    Prompt the logged-in user for  their old password and a new one and change
-    the password if the old password is valid.
+    Prompt the logged-in user for their current password as well as a new one.
+    If the current password is valid, change it to the new one.
+
     """
     template_name = "registration/password_change_form.html"
     success_url = reverse_lazy('django.contrib.auth.views.password_change_done')
@@ -273,9 +273,7 @@ class PasswordChangeView(CurrentAppMixin, generic.UpdateView):
 
 
 class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
-    """
-    Show a confirmation message that the user's password has been changed.
-    """
+    """Show a confirmation message that the user's password has been changed."""
     template_name = "registration/password_change_done.html"
 
     @method_decorator(login_required)
@@ -296,6 +294,11 @@ class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
 # password_change_done
 
 def add_extra_context(cbv, **kwargs):
+    """
+    A compatibility utility to transform the extra_context keyword argument
+    into a get_context_data method on the class-based view.
+
+    """
     extra_context = kwargs.pop('extra_context', {})
     class Wrapped(cbv):
         def get_context_data(self, **kwargs):
