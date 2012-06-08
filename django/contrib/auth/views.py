@@ -139,7 +139,8 @@ class LogoutView(CurrentAppMixin, CurrentSiteMixin, generic.TemplateView):
             # Render the template
             return super(LogoutView, self).get(request, *args, **kwargs)
 
-    # XXX: define post(), put(), ... ?
+    def post(self, request, *args, **kwargs):
+        return self.get(request, *args, **kwargs)
 
 
 class LogoutThenLoginView(LogoutView):
