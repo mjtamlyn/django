@@ -205,6 +205,11 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.FormView):
     token_generator = default_token_generator
 
     def get_user(self):
+        """Try to retrieve the user corresponding to the uid captured in the URL.
+        If no user is found, or if the user found does not match the token in
+        the URL, return None.
+        
+        """
         try:
             pk = base36_to_int(self.kwargs['uidb36'])
             user = User.objects.get(pk=pk)
