@@ -212,22 +212,22 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.FormView):
     @method_decorator(sensitive_post_parameters())
     @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):
-        self.user = self.get_user()
+        self.user = self.get_user(**kwargs)
         return super(PasswordResetConfirmView, self).dispatch(request, *args, **kwargs)
 
-    def get_user(self):
+    def get_user(self, **kwargs):
         """Try to retrieve the user corresponding to the uid captured in the URL.
         If no user is found, or if the user found does not match the token in
         the URL, return None.
         
         """
         try:
-            pk = base36_to_int(self.kwargs['uidb36'])
+            pk = base36_to_int(kwargs['uidb36'])
             user = User.objects.get(pk=pk)
         except (ValueError, OverflowError, User.DoesNotExist):
             return None
 
-        if not self.token_generator.check_token(user, self.kwargs['token']):
+        if not self.token_generator.check_token(user, kwargs['token']):
             return None
         return user
 
