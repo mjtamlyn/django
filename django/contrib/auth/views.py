@@ -308,7 +308,7 @@ class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
 
 def cbv_wrapper(cbv, initkwarg_rewrites=None):
     def wrapped(request, *args, **kwargs):
-        extra_context = kwargs.get('extra_context', {})
+        extra_context = kwargs.pop('extra_context', {})
         initkwargs = copy.copy(kwargs)
         if initkwarg_rewrites:
             for old, new in initkwarg_rewrites.items():
@@ -324,14 +324,14 @@ def cbv_wrapper(cbv, initkwarg_rewrites=None):
         return response
     return wrapped
 
-login = cbv_wrapper(LoginView)
+login = cbv_wrapper(LoginView, {'authentication_form': 'form_class'})
 logout = cbv_wrapper(LogoutView, {'next_page': 'success_url'})
-logout_then_login = cbv_wrapper(LogoutThenLoginView)
-password_reset = cbv_wrapper(PasswordResetView)
+logout_then_login = cbv_wrapper(LogoutThenLoginView, {'login_url': 'success_url'})
+password_reset = cbv_wrapper(PasswordResetView, {'password_reset_form': 'form_class'})
 password_reset_done = cbv_wrapper(PasswordResetDoneView)
-password_reset_confirm = cbv_wrapper(PasswordResetConfirmView, {'uidb36': None, 'token': None})
+password_reset_confirm = cbv_wrapper(PasswordResetConfirmView, {'uidb36': None, 'token': None, 'set_password_form': 'form_class', 'post_reset_redirect': 'success_url'})
 password_reset_complete = cbv_wrapper(PasswordResetCompleteView)
-password_change = cbv_wrapper(PasswordChangeView)
+password_change = cbv_wrapper(PasswordChangeView, {'post_change_redirect': 'success_url', 'password_change_form': 'form_class'})
 password_change_done = cbv_wrapper(PasswordChangeDoneView)
 
 def redirect_to_login(next, login_url=None,
