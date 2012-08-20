@@ -246,12 +246,12 @@ class PasswordResetConfirmView(CurrentAppMixin, generic.FormView):
         return super(PasswordResetConfirmView, self).form_valid(form)
 
 
-class PasswordResetComplete(CurrentAppMixin, generic.TemplateView):
+class PasswordResetCompleteView(CurrentAppMixin, generic.TemplateView):
     """Show a confirmation message that the user's password has been reset."""
     template_name = "registration/password_reset_complete.html"
 
     def get_context_data(self, **kwargs):
-        context = super(PasswordResetComplete, self).get_context_data(**kwargs)
+        context = super(PasswordResetCompleteView, self).get_context_data(**kwargs)
         context['login_url'] = settings.LOGIN_URL
         return context
 
