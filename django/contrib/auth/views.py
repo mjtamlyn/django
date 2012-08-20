@@ -1,3 +1,5 @@
+import copy
+
 try:
     from urllib.parse import urlparse, urlunparse
 except ImportError:     # Python 2
@@ -304,71 +306,33 @@ class PasswordChangeDoneView(CurrentAppMixin, generic.TemplateView):
 # password_change
 # password_change_done
 
-def add_extra_context(cbv, **kwargs):
-    """
-    A compatibility utility to transform the extra_context keyword argument
-    into a get_context_data method on the class-based view.
+def cbv_wrapper(cbv, initkwarg_rewrites=None):
+    def wrapped(request, *args, **kwargs):
+        extra_context = kwargs.get('extra_context', {})
+        initkwargs = copy.copy(kwargs)
+        if initkwarg_rewrites:
+            for old, new in initkwarg_rewrites.items():
+                if old in initkwargs:
+                    value = initkwargs.pop(old)
+                    if new:
+                        initkwargs[new] = value
+        view = cbv.as_view(**initkwargs)
+        response = view(request, *args, **kwargs)
+        if hasattr(response, 'context_data'):
+            # don't try to update context on Redirects
+            response.context_data.update(extra_context)
+        return response
+    return wrapped
 
-    """
-    extra_context = kwargs.pop('extra_context', {})
-    class Wrapped(cbv):
-        def get_context_data(self, **kwargs):
-            context = super(cbv, self).get_context_data(**kwargs)
-            context.update(extra_context)
-            return context
-
-    return Wrapped.as_view(**kwargs)
-
-def login(request, template_name=None, redirect_field_name=None,
-          authentication_form=None, current_app=None, extra_context=None):
-    kwargs = {}
-
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if redirect_field_name is not None:
-        kwargs["redirect_field_name"] = redirect_field_name
-    if authentication_form is not None:
-        kwargs["form_class"] = authentication_form
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    view = add_extra_context(LoginView, **kwargs)
-    return view(request)
-
-def logout(request, next_page=None, template_name=None,
-           redirect_field_name=None, current_app=None, extra_context=None):
-    kwargs = {}
-
-    if next_page is not None:
-        kwargs["success_url"] = next_page
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if redirect_field_name is not None:
-        kwargs["redirect_field_name"] = redirect_field_name
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    view = add_extra_context(LogoutView, **kwargs)
-    return view(request)
-
-def logout_then_login(request, login_url=None, current_app=None, extra_context=None):
-    """
-    Logs out the user if he is logged in. Then redirects to the log-in page.
-    """
-    kwargs = {}
-
-    if login_url is not None:
-        kwargs["success_url"] = login_url
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-    view = add_extra_context(LogoutThenLoginView, **kwargs)
-    return view(request)
+login = cbv_wrapper(LoginView)
+logout = cbv_wrapper(LogoutView, {'next_page': 'success_url'})
+logout_then_login = cbv_wrapper(LogoutThenLoginView)
+password_reset = cbv_wrapper(PasswordResetView)
+password_reset_done = cbv_wrapper(PasswordResetDoneView)
+password_reset_confirm = cbv_wrapper(PasswordResetConfirmView, {'uidb36': None, 'token': None})
+password_reset_complete = cbv_wrapper(PasswordResetCompleteView)
+password_change = cbv_wrapper(PasswordChangeView)
+password_change_done = cbv_wrapper(PasswordChangeDoneView)
 
 def redirect_to_login(next, login_url=None,
                       redirect_field_name=REDIRECT_FIELD_NAME):
@@ -385,120 +349,3 @@ def redirect_to_login(next, login_url=None,
         login_url_parts[4] = querystring.urlencode(safe='/')
 
     return HttpResponseRedirect(urlunparse(login_url_parts))
-
-def password_reset(request, is_admin_site=None, template_name=None,
-                   email_template_name=None, subject_template_name=None,
-                   password_reset_form=None, token_generator=None,
-                   post_reset_redirect=None, from_email=None, current_app=None,
-                   extra_context=None):
-    kwargs = {}
-
-    if is_admin_site is not None:
-        kwargs["is_admin_site"] = is_admin_site
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if email_template_name is not None:
-        kwargs["email_template_name"] = email_template_name
-    if password_reset_form is not None:
-        kwargs["form_class"] = password_reset_form
-    if token_generator is not None:
-        kwargs["token_generator"] = token_generator
-    if post_reset_redirect is not None:
-        kwargs["success_url"] = post_reset_redirect
-    if from_email is not None:
-        kwargs["from_email"] = from_email
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    password_reset = add_extra_context(PasswordResetView, **kwargs)
-    return password_reset(request)
-
-def password_reset_done(request, template_name=None, current_app=None,
-                        extra_context=None):
-    kwargs = {}
-
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    password_reset_done = add_extra_context(PasswordResetDoneView, **kwargs)
-    return password_reset_done(request)
-
-def password_reset_confirm(request, uidb36=None, token=None,
-                           template_name=None, token_generator=None,
-                           set_password_form=None, post_reset_redirect=None,
-                           current_app=None, extra_context=None):
-    """
-    View that checks the hash in a password reset link and presents a
-    form for entering a new password.
-    """
-    assert uidb36 is not None and token is not None  # checked by URLconf
-    kwargs = {}
-
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if token_generator is not None:
-        kwargs["token_generator"] = token_generator
-    if set_password_form is not None:
-        kwargs["form_class"] = set_password_form
-    if post_reset_redirect is not None:
-        kwargs["success_url"] = post_reset_redirect
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    password_reset_confirm = add_extra_context(PasswordResetConfirmView, **kwargs)
-    return password_reset_confirm(request, uidb36=uidb36, token=token)
-
-def password_reset_complete(request, template_name=None, current_app=None,
-                            extra_context=None):
-    kwargs = {}
-
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    password_reset_complete = add_extra_context(PasswordResetComplete, **kwargs)
-    return password_reset_complete(request)
-
-def password_change(request, template_name=None, post_change_redirect=None,
-                    password_change_form=None, current_app=None,
-                    extra_context=None):
-    kwargs = {}
-
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if post_change_redirect is not None:
-        kwargs["success_url"] = post_change_redirect
-    if password_change_form is not None:
-        kwargs["form_class"] = password_change_form
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    password_change = add_extra_context(PasswordChangeView, **kwargs)
-    return password_change(request)
-
-def password_change_done(request, template_name=None, current_app=None,
-                            extra_context=None):
-    kwargs = {}
-
-    if template_name is not None:
-        kwargs["template_name"] = template_name
-    if current_app is not None:
-        kwargs["current_app"] = current_app
-    if extra_context is not None:
-        kwargs["extra_context"] = extra_context
-
-    password_change_done = add_extra_context(PasswordChangeDoneView, **kwargs)
-    return password_change_done(request)
