@@ -90,6 +90,15 @@ In all :doc:`generic class-based views </topics/class-based-views/index>`
 (or any class-based view inheriting from ``ContextMixin``), the context dictionary
 contains a ``view`` variable that points to the ``View`` instance.
 
+New class-based views in ``contrib.auth``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The views in :mod:`contrib.auth <django.contrib.auth.views>` have new class
+based versions. The old views are retained for backwards compatibility. The new
+class based versions are equivalent to the old views and will largely accept
+the same arguments. There are some changes to parameter names, such as
+``form_class`` being used instead of ``authentication_form``.
+
 Minor features
 ~~~~~~~~~~~~~~
 
