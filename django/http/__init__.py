@@ -671,9 +671,15 @@ class HttpResponse(object):
 
     def _get_content(self):
         if self.has_header('Content-Encoding'):
-            # XXX this doesn't work under Python 3 when e is an integer (#18764)
-            return b''.join([bytes(e) for e in self._container])
-        return b''.join([smart_bytes(e, self._charset) for e in self._container])
+            def make_bytes(value):
+                if isinstance(value, int):
+                    value = six.text_type(value)
+                if isinstance(value, six.text_type):
+                    value = value.encode('ascii')
+                # force conversion to bytes in case chunk is a subclass
+                return bytes(value)
+            return b''.join(make_bytes(e) for e in self._container)
+        return b''.join(smart_bytes(e, self._charset) for e in self._container)
 
     def _set_content(self, value):
         if hasattr(value, '__iter__') and not isinstance(value, (bytes, six.string_types)):
@@ -691,8 +697,11 @@ class HttpResponse(object):
 
     def __next__(self):
         chunk = next(self._iterator)
+        if isinstance(chunk, int):
+            chunk = six.text_type(chunk)
         if isinstance(chunk, six.text_type):
             chunk = chunk.encode(self._charset)
+        # force conversion to bytes in case chunk is a subclass
         return bytes(chunk)
 
     next = __next__             # Python 2 compatibility
