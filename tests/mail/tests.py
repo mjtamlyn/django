@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import asyncore
+from contextlib import closing
 from email.mime.text import MIMEText
 import os
 import shutil
@@ -460,7 +461,8 @@ class BaseEmailBackendTests(HeadersCheckMixin, object):
 
     def test_send(self):
         email = EmailMessage('Subject', 'Content', 'from@example.com', ['to@example.com'])
-        num_sent = mail.get_connection().send_messages([email])
+        with closing(mail.get_connection()) as connection:
+            num_sent = connection.send_messages([email])
         self.assertEqual(num_sent, 1)
         message = self.get_the_message()
         self.assertEqual(message["subject"], "Subject")
@@ -470,7 +472,8 @@ class BaseEmailBackendTests(HeadersCheckMixin, object):
 
     def test_send_unicode(self):
         email = EmailMessage('Chère maman', 'Je t\'aime très fort', 'from@example.com', ['to@example.com'])
-        num_sent = mail.get_connection().send_messages([email])
+        with closing(mail.get_connection()) as connection:
+            num_sent = connection.send_messages([email])
         self.assertEqual(num_sent, 1)
         message = self.get_the_message()
         self.assertEqual(message["subject"], '=?utf-8?q?Ch=C3=A8re_maman?=')
@@ -479,7 +482,8 @@ class BaseEmailBackendTests(HeadersCheckMixin, object):
     def test_send_many(self):
         email1 = EmailMessage('Subject', 'Content1', 'from@example.com', ['to@example.com'])
         email2 = EmailMessage('Subject', 'Content2', 'from@example.com', ['to@example.com'])
-        num_sent = mail.get_connection().send_messages([email1, email2])
+        with closing(mail.get_connection()) as connection:
+            num_sent = connection.send_messages([email1, email2])
         self.assertEqual(num_sent, 2)
         messages = self.get_mailbox_content()
         self.assertEqual(len(messages), 2)
@@ -586,7 +590,8 @@ class BaseEmailBackendTests(HeadersCheckMixin, object):
         Regression test for #7722
         """
         email = EmailMessage('Subject', 'Content', 'from@example.com', ['to@example.com'], cc=['cc@example.com'])
-        mail.get_connection().send_messages([email])
+        with closing(mail.get_connection()) as connection:
+            connection.send_messages([email])
         message = self.get_the_message()
         self.assertMessageHasHeaders(message, {
             ('MIME-Version', '1.0'),
@@ -891,8 +896,12 @@ class SMTPBackendTests(BaseEmailBackendTests, SimpleTestCase):
         """
         backend = smtp.EmailBackend(
             username='not empty username', password='not empty password')
-        self.assertRaisesMessage(SMTPException,
-            'SMTP AUTH extension not supported by server.', backend.open)
+        try:
+            with self.assertRaisesMessage(SMTPException,
+                    'SMTP AUTH extension not supported by server.'):
+                backend.open()
+        finally:
+            backend.close()
 
     def test_server_stopped(self):
         """
@@ -939,8 +948,12 @@ class SMTPBackendTests(BaseEmailBackendTests, SimpleTestCase):
     def test_email_tls_attempts_starttls(self):
         backend = smtp.EmailBackend()
         self.assertTrue(backend.use_tls)
-        self.assertRaisesMessage(SMTPException,
-            'STARTTLS extension not supported by server.', backend.open)
+        try:
+            with self.assertRaisesMessage(SMTPException,
+                    'STARTTLS extension not supported by server.'):
+                backend.open()
+        finally:
+            backend.close()
 
     @override_settings(EMAIL_USE_SSL=True)
     def test_email_ssl_attempts_ssl_connection(self):
@@ -962,5 +975,8 @@ class SMTPBackendTests(BaseEmailBackendTests, SimpleTestCase):
 
         myemailbackend = MyEmailBackend()
         myemailbackend.open()
-        self.assertEqual(myemailbackend.timeout, 42)
-        self.assertEqual(myemailbackend.connection.timeout, 42)
+        try:
+            self.assertEqual(myemailbackend.timeout, 42)
+            self.assertEqual(myemailbackend.connection.timeout, 42)
+        finally:
+            myemailbackend.close()

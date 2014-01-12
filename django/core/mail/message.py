@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+from contextlib import closing
 import mimetypes
 import os
 import random
@@ -280,7 +281,8 @@ class EmailMessage(object):
             # Don't bother creating the network connection if there's nobody to
             # send to.
             return 0
-        return self.get_connection(fail_silently).send_messages([self])
+        with closing(self.get_connection(fail_silently)) as connection:
+            return connection.send_messages([self])
 
     def attach(self, filename=None, content=None, mimetype=None):
         """
