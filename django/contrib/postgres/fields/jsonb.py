@@ -1,12 +1,11 @@
 import json
 
-from django.contrib.postgres import lookups, forms
+from psycopg2.extras import Json
+
+from django.contrib.postgres import forms, lookups
 from django.core import exceptions
 from django.db.models import Field, Transform
 from django.utils.translation import ugettext_lazy as _
-
-from psycopg2.extras import Json
-
 
 __all__ = ['JSONField']
 
