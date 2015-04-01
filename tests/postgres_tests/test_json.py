@@ -1,5 +1,8 @@
 import unittest
 
+from django.contrib.postgres import forms
+from django.contrib.postgres.fields import JSONField
+from django.core import exceptions, serializers
 from django.db import connection
 from django.test import TestCase
 
@@ -66,6 +69,7 @@ class TestSaveLoad(TestCase):
         self.assertEqual(loaded.field, obj)
 
 
+@skipUnlessPG94
 class TestQuerying(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -164,3 +168,51 @@ class TestQuerying(TestCase):
             JSONModel.objects.filter(field__d__1__f='g'),
             [self.objs[8]]
         )
+
+
+@skipUnlessPG94
+class TestSerialization(TestCase):
+    test_data = '[{"fields": {"field": {"a": "b"}}, "model": "postgres_tests.jsonmodel", "pk": null}]'
+
+    def test_dumping(self):
+        instance = JSONModel(field={'a': 'b'})
+        data = serializers.serialize('json', [instance])
+        self.assertJSONEqual(data, self.test_data)
+
+    def test_loading(self):
+        instance = list(serializers.deserialize('json', self.test_data))[0].object
+        self.assertEqual(instance.field, {'a': 'b'})
+
+
+class TestValidation(TestCase):
+
+    def test_not_serializable(self):
+        field = JSONField()
+        with self.assertRaises(exceptions.ValidationError) as cm:
+            field.clean(set(), None)
+        self.assertEqual(cm.exception.code, 'invalid')
+        self.assertEqual(cm.exception.message % cm.exception.params, "'set([])' value must be valid JSON.")
+
+
+class TestFormField(TestCase):
+
+    def test_valid(self):
+        field = forms.JSONField()
+        value = field.clean('{"a": "b"}')
+        self.assertEqual(value, {'a': 'b'})
+
+    def test_invalid(self):
+        field = forms.JSONField()
+        with self.assertRaises(exceptions.ValidationError) as cm:
+            field.clean('{some badly formed: json}')
+        self.assertEqual(cm.exception.messages[0], "'{some badly formed: json}' value must be valid JSON.")
+
+    def test_formfield(self):
+        model_field = JSONField()
+        form_field = model_field.formfield()
+        self.assertIsInstance(form_field, forms.JSONField)
+
+    def test_prepare_value(self):
+        field = forms.JSONField()
+        self.assertEqual(field.prepare_value({'a': 'b'}), '{"a": "b"}')
+        self.assertEqual(field.prepare_value(None), 'null')

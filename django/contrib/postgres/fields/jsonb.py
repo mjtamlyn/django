@@ -1,4 +1,7 @@
-from django.contrib.postgres import lookups
+import json
+
+from django.contrib.postgres import lookups, forms
+from django.core import exceptions
 from django.db.models import Field, Transform
 from django.utils.translation import ugettext_lazy as _
 
@@ -11,6 +14,9 @@ __all__ = ['JSONField']
 class JSONField(Field):
     empty_strings_allowed = False
     description = _('A JSON object')
+    default_error_messages = {
+        'invalid': _("'%(value)s' value must be valid JSON."),
+    }
 
     def db_type(self, connection):
         return 'jsonb'
@@ -34,6 +40,26 @@ class JSONField(Field):
         if isinstance(value, (dict, list)):
             return Json(value)
         return super(JSONField, self).get_prep_lookup(lookup_type, value)
+
+    def validate(self, value, model_instance):
+        super(JSONField, self).validate(value, model_instance)
+        try:
+            json.dumps(value)
+        except TypeError:
+            raise exceptions.ValidationError(
+                self.error_messages['invalid'],
+                code='invalid',
+                params={'value': value},
+            )
+
+    def value_to_string(self, obj):
+        value = self._get_val_from_obj(obj)
+        return value
+
+    def formfield(self, **kwargs):
+        defaults = {'form_class': forms.JSONField}
+        defaults.update(kwargs)
+        return super(JSONField, self).formfield(**defaults)
 
 
 JSONField.register_lookup(lookups.DataContains)
