@@ -1,6 +1,6 @@
 from django.contrib.postgres.fields import (
     ArrayField, BigIntegerRangeField, DateRangeField, DateTimeRangeField,
-    FloatRangeField, HStoreField, IntegerRangeField,
+    FloatRangeField, HStoreField, IntegerRangeField, JSONField,
 )
 from django.db import connection, models
 
@@ -45,7 +45,7 @@ class TextFieldModel(models.Model):
     field = models.TextField()
 
 
-# Only create this model for databases which support it
+# Only create this model for postgres >= 9.2
 if connection.vendor == 'postgresql' and connection.pg_version >= 90200:
     class RangesModel(models.Model):
         ints = IntegerRangeField(blank=True, null=True)
@@ -56,6 +56,16 @@ if connection.vendor == 'postgresql' and connection.pg_version >= 90200:
 else:
     # create an object with this name so we don't have failing imports
     class RangesModel(object):
+        pass
+
+
+# Only create this model for postgres >= 9.4
+if connection.vendor == 'postgresql' and connection.pg_version >= 90400:
+    class JSONModel(models.Model):
+        field = JSONField(blank=True, null=True)
+else:
+    # create an object with this name so we don't have failing imports
+    class JSONModel(object):
         pass
 
 

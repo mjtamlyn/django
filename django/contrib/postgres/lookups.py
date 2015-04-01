@@ -30,6 +30,16 @@ class Overlap(PostgresSimpleLookup):
     operator = '&&'
 
 
+class HasKey(PostgresSimpleLookup):
+    lookup_name = 'has_key'
+    operator = '?'
+
+
+class HasKeys(PostgresSimpleLookup):
+    lookup_name = 'has_keys'
+    operator = '?&'
+
+
 class Unaccent(FunctionTransform):
     bilateral = True
     lookup_name = 'unaccent'
