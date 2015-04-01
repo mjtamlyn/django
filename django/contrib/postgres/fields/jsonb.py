@@ -49,7 +49,14 @@ class KeyTransform(Transform):
         self.key_name = key_name
 
     def as_sql(self, compiler, connection):
-        lhs, params = compiler.compile(self.lhs)
+        key_transforms = [self.key_name]
+        previous = self.lhs
+        while isinstance(previous, KeyTransform):
+            key_transforms.insert(0, previous.key_name)
+            previous = previous.lhs
+        lhs, params = compiler.compile(previous)
+        if len(key_transforms) > 1:
+            return "{} #> %s".format(lhs), [key_transforms] + params
         try:
             int(self.key_name)
         except ValueError:

@@ -88,8 +88,9 @@ class TestQuerying(TestCase):
                 'h': True,
                 'i': False,
                 'j': None,
+                'k': {'l': 'm'},
             }),
-            JSONModel.objects.create(field=[1, 2]),
+            JSONModel.objects.create(field=[1, [2]]),
         ]
 
     def test_exact(self):
@@ -146,7 +147,19 @@ class TestQuerying(TestCase):
             [self.objs[7], self.objs[8]]
         )
 
-    def test_deep_lookup(self):
+    def test_deep_lookup_objs(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__k__l='m'),
+            [self.objs[8]]
+        )
+
+    def test_deep_lookup_array(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__1__0=2),
+            [self.objs[9]]
+        )
+
+    def test_deep_lookup_mixed(self):
         self.assertSequenceEqual(
             JSONModel.objects.filter(field__d__1__f='g'),
             [self.objs[8]]
