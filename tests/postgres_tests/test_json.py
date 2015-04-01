@@ -1,3 +1,4 @@
+import datetime
 import unittest
 
 from django.contrib.postgres import forms
@@ -189,9 +190,9 @@ class TestValidation(TestCase):
     def test_not_serializable(self):
         field = JSONField()
         with self.assertRaises(exceptions.ValidationError) as cm:
-            field.clean(set(), None)
+            field.clean(datetime.timedelta(days=1), None)
         self.assertEqual(cm.exception.code, 'invalid')
-        self.assertEqual(cm.exception.message % cm.exception.params, "'set([])' value must be valid JSON.")
+        self.assertEqual(cm.exception.message % cm.exception.params, "'1 day, 0:00:00' value must be valid JSON.")
 
 
 class TestFormField(TestCase):
