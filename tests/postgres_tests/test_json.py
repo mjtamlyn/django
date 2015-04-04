@@ -96,6 +96,10 @@ class TestQuerying(TestCase):
                 'k': {'l': 'm'},
             }),
             JSONModel.objects.create(field=[1, [2]]),
+            JSONModel.objects.create(field={
+                'k': True,
+                'l': False,
+            }),
         ]
 
     def test_exact(self):
@@ -140,6 +144,12 @@ class TestQuerying(TestCase):
             [self.objs[8]]
         )
 
+    def test_has_any_keys(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__has_any_keys=['c', 'l']),
+            [self.objs[7], self.objs[8], self.objs[10]]
+        )
+
     def test_shallow_list_lookup(self):
         self.assertSequenceEqual(
             JSONModel.objects.filter(field__0=1),
@@ -158,6 +168,12 @@ class TestQuerying(TestCase):
             [self.objs[8]]
         )
 
+    def test_shallow_lookup_obj_target(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__k={'l': 'm'}),
+            [self.objs[8]]
+        )
+
     def test_deep_lookup_array(self):
         self.assertSequenceEqual(
             JSONModel.objects.filter(field__1__0=2),
@@ -168,6 +184,16 @@ class TestQuerying(TestCase):
         self.assertSequenceEqual(
             JSONModel.objects.filter(field__d__1__f='g'),
             [self.objs[8]]
+        )
+
+    def test_deep_lookup_transform(self):
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__c__gt=1),
+            []
+        )
+        self.assertSequenceEqual(
+            JSONModel.objects.filter(field__c__lt=5),
+            [self.objs[7], self.objs[8]]
         )
 
 

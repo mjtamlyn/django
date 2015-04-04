@@ -36,6 +36,8 @@ class JSONField(Field):
             return value
         if lookup_type == 'has_keys':
             return value
+        if lookup_type == 'has_any_keys':
+            return value
         if isinstance(value, (dict, list)):
             return Json(value)
         return super(JSONField, self).get_prep_lookup(lookup_type, value)
@@ -65,6 +67,7 @@ JSONField.register_lookup(lookups.DataContains)
 JSONField.register_lookup(lookups.ContainedBy)
 JSONField.register_lookup(lookups.HasKey)
 JSONField.register_lookup(lookups.HasKeys)
+JSONField.register_lookup(lookups.HasAnyKeys)
 
 
 class KeyTransform(Transform):

@@ -40,6 +40,11 @@ class HasKeys(PostgresSimpleLookup):
     operator = '?&'
 
 
+class HasAnyKeys(PostgresSimpleLookup):
+    lookup_name = 'has_any_keys'
+    operator = '?|'
+
+
 class Unaccent(FunctionTransform):
     bilateral = True
     lookup_name = 'unaccent'
