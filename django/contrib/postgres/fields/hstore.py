@@ -57,6 +57,7 @@ HStoreField.register_lookup(lookups.DataContains)
 HStoreField.register_lookup(lookups.ContainedBy)
 HStoreField.register_lookup(lookups.HasKey)
 HStoreField.register_lookup(lookups.HasKeys)
+HStoreField.register_lookup(lookups.HasAnyKeys)
 
 
 class KeyTransform(Transform):
