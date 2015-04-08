@@ -17,6 +17,10 @@ class JSONField(Field):
         'invalid': _("'%(value)s' value must be valid JSON."),
     }
 
+    def __init__(self, *args, **kwargs):
+        self.encode_kwargs = kwargs.pop('encode_kwargs', {})
+        super(JSONField, self).__init__(*args, **kwargs)
+
     def db_type(self, connection):
         return 'jsonb'
 
@@ -28,7 +32,7 @@ class JSONField(Field):
 
     def get_prep_value(self, value):
         if value is not None:
-            return Json(value)
+            return Json(value, dumps=lambda value: json.dumps(value, **self.encode_kwargs))
         return value
 
     def get_prep_lookup(self, lookup_type, value):
