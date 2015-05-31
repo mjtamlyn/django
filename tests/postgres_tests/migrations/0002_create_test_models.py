@@ -115,6 +115,16 @@ class Migration(migrations.Migration):
             bases=None,
         ),
         migrations.CreateModel(
+            name='NamedTextFieldModel',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('name', models.CharField(max_length=255)),
+                ('body', models.TextField(blank=True, null=True)),
+            ],
+            options=None,
+            bases=None,
+        ),
+        migrations.CreateModel(
             name='AggregateTestModel',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),

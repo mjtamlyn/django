@@ -78,6 +78,17 @@ class CharFieldModel(models.Model):
 class TextFieldModel(models.Model):
     field = models.TextField()
 
+    def __str__(self):
+        return self.field
+
+
+class NamedTextFieldModel(models.Model):
+    name = models.CharField(max_length=255)
+    body = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
 
 class RangesModel(PostgreSQLModel):
     ints = IntegerRangeField(blank=True, null=True)
