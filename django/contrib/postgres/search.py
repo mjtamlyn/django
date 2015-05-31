@@ -2,7 +2,6 @@ from django.db.models import Field, F
 from django.db.models.expressions import Func, Value
 from django.db.models.functions import Coalesce
 from django.db.models.lookups import Lookup
-from django.utils import six
 
 
 class SearchVectorExact(Lookup):
@@ -56,14 +55,12 @@ class SearchQuery(Value):
     def __init__(self, value, **extra):
         dictionary = extra.pop('dictionary', self.dictionary)
         if dictionary:
-            self.template = "to_tsquery('{}', %s)".format(dictionary)
+            self.template = "plainto_tsquery('{}', %s)".format(dictionary)
         else:
-            self.template = "to_tsquery(%s)"
+            self.template = "plainto_tsquery(%s)"
         super(SearchQuery, self).__init__(value, **extra)
 
     def as_sql(self, compiler, connection):
-        if isinstance(self.value, six.string_types):
-            self.value = ' & '.join(self.value.split())
         return self.template, [self.value]
 
 
