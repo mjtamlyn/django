@@ -1,11 +1,16 @@
-from django.contrib.postgres.search import SearchVector, SearchQuery
-from django.test import TestCase, modify_settings
+from django.test import modify_settings
 
-from .models import TextFieldModel, NamedTextFieldModel
+from . import PostgreSQLTestCase
+from .models import NamedTextFieldModel, TextFieldModel
+
+try:
+    from django.contrib.postgres.search import SearchVector, SearchQuery
+except ImportError:
+    pass
 
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
-class SimpleSearchTest(TestCase):
+class SimpleSearchTest(PostgreSQLTestCase):
 
     @classmethod
     def setUpTestData(cls):
@@ -49,7 +54,7 @@ class SimpleSearchTest(TestCase):
         self.assertSequenceEqual(searched, [self.verse0])
 
 
-class MultipleFieldsTest(TestCase):
+class MultipleFieldsTest(PostgreSQLTestCase):
 
     @classmethod
     def setUpTestData(cls):

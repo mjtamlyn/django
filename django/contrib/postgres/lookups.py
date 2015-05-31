@@ -1,6 +1,6 @@
 from django.db.models import Lookup, Transform
 
-from .search import SearchVector, SearchVectorField, SearchVectorExact
+from .search import SearchVector, SearchVectorExact, SearchVectorField
 
 
 class PostgresSimpleLookup(Lookup):
