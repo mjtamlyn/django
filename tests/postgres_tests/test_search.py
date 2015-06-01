@@ -123,22 +123,22 @@ class MultipleFieldsTest(PostgreSQLTestCase):
         ).filter(search='kill')
         self.assertSequenceEqual(searched, [self.verse0, nulled])
 
-    def test_dictionary_query_explicit(self):
+    def test_config_query_explicit(self):
         french = NamedTextFieldModel.objects.create(
             name='French knights',
             body='Oh. Un cadeau. Oui oui.',
         )
         searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body', dictionary='french'),
-        ).filter(search=SearchQuery('cadeaux', dictionary='french'))
+            search=SearchVector('name', 'body', config='french'),
+        ).filter(search=SearchQuery('cadeaux', config='french'))
         self.assertSequenceEqual(searched, [french])
 
-    def test_dictionary_query_implicit(self):
+    def test_config_query_implicit(self):
         french = NamedTextFieldModel.objects.create(
             name='French knights',
             body='Oh. Un cadeau. Oui oui.',
         )
         searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body', dictionary='french'),
+            search=SearchVector('name', 'body', config='french'),
         ).filter(search='cadeaux')
         self.assertSequenceEqual(searched, [french])
