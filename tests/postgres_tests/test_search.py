@@ -22,8 +22,8 @@ class GrailTests(object):
 
     @classmethod
     def setUpTestData(cls):
-        robin = Scene.objects.create(scene='Scene 10', setting='The dark forest of Ewing')
-        minstrel = Character.objects.create(name='Minstrel')
+        cls.robin = Scene.objects.create(scene='Scene 10', setting='The dark forest of Ewing')
+        cls.minstrel = Character.objects.create(name='Minstrel')
         verses = [
             (
                 'Bravely bold Sir Robin, rode forth from Camelot. '
@@ -45,8 +45,8 @@ class GrailTests(object):
             ),
         ]
         cls.verses = [Line.objects.create(
-            scene=robin,
-            character=minstrel,
+            scene=cls.robin,
+            character=cls.minstrel,
             dialogue=verse,
         ) for verse in verses]
         cls.verse0, cls.verse1, cls.verse2 = cls.verses
@@ -154,5 +154,30 @@ class MultipleFieldsTest(GrailTests, PostgreSQLTestCase):
 
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
-class SearchVectorOptions(PostgreSQLTestCase):
-    pass
+class TestCombinations(GrailTests, PostgreSQLTestCase):
+
+    def test_vector_add(self):
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting') + SearchVector('character__name'),
+        ).filter(search='bedemir')
+        self.assertEqual(set(searched), {
+            self.bedemir0,
+            self.bedemir1,
+            self.crowd,
+            self.witch,
+            self.duck,
+        })
+
+    def test_query_and(self):
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
+        ).filter(search=SearchQuery('bedemir').bitand(SearchQuery('scales')))
+        self.assertSequenceEqual(searched, [self.bedemir0])
+
+    def test_query_or(self):
+        searched = Line.objects.filter(dialogue__search=SearchQuery('kneecaps').bitor(SearchQuery('nostrils')))
+        self.assertSequenceEqual(set(searched), {self.verse1, self.verse2})
+
+    def test_query_invert(self):
+        searched = Line.objects.filter(character=self.minstrel, dialogue__search=~SearchQuery('kneecaps'))
+        self.assertSequenceEqual(set(searched), {self.verse0, self.verse2})
