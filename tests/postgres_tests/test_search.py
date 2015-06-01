@@ -1,7 +1,16 @@
+"""
+Test Postgres FTS.
+
+These tests use dialogue from the 1975 film Monty Python and the Holy Grail.
+All text remains copyright Python (Monty) Pictures. With thanks to
+sacred-texts.com for the transcript.
+"""
+
+
 from django.test import modify_settings
 
 from . import PostgreSQLTestCase
-from .models import NamedTextFieldModel, TextFieldModel
+from .models import Character, Line, Scene
 
 try:
     from django.contrib.postgres.search import SearchVector, SearchQuery
@@ -9,11 +18,12 @@ except ImportError:
     pass
 
 
-@modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
-class SimpleSearchTest(PostgreSQLTestCase):
+class GrailTests(object):
 
     @classmethod
     def setUpTestData(cls):
+        robin = Scene.objects.create(scene='Scene 10', setting='The dark forest of Ewing')
+        minstrel = Character.objects.create(name='Minstrel')
         verses = [
             (
                 'Bravely bold Sir Robin, rode forth from Camelot. '
@@ -34,111 +44,115 @@ class SimpleSearchTest(PostgreSQLTestCase):
                 'And his --'
             ),
         ]
-        cls.verses = [TextFieldModel.objects.create(field=verse) for verse in verses]
+        cls.verses = [Line.objects.create(
+            scene=robin,
+            character=minstrel,
+            dialogue=verse,
+        ) for verse in verses]
         cls.verse0, cls.verse1, cls.verse2 = cls.verses
 
+        witch_scene = Scene.objects.create(scene='Scene 5', setting="Sir Bedemir's Castle")
+        bedemir = Character.objects.create(name='Bedemir')
+        crowd = Character.objects.create(name='Crowd')
+        witch = Character.objects.create(name='Witch')
+        duck = Character.objects.create(name='Duck')
+
+        cls.bedemir0 = Line.objects.create(scene=witch_scene, character=bedemir, dialogue='We shall use my larger scales!')
+        cls.bedemir1 = Line.objects.create(scene=witch_scene, character=bedemir, dialogue='Right, remove the supports!')
+        cls.duck = Line.objects.create(scene=witch_scene, character=duck, dialogue=None)
+        cls.crowd = Line.objects.create(scene=witch_scene, character=crowd, dialogue='A witch! A witch!')
+        cls.witch = Line.objects.create(scene=witch_scene, character=witch, dialogue="It's a fair cop.")
+
+        trojan_rabbit = Scene.objects.create(scene='Scene 8', setting="The castle of Our Master Ruiz' de lu la Ramper")
+        guards = Character.objects.create(name='French Guards')
+        cls.french = Line.objects.create(
+            scene=trojan_rabbit,
+            character=guards,
+            dialogue='Oh. Un cadeau. Oui oui.',
+        )
+
+
+@modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
+class SimpleSearchTest(GrailTests, PostgreSQLTestCase):
+
     def test_simple(self):
-        searched = TextFieldModel.objects.filter(field__search='elbows')
+        searched = Line.objects.filter(dialogue__search='elbows')
         self.assertSequenceEqual(searched, [self.verse1])
 
     def test_non_exact_match(self):
-        searched = TextFieldModel.objects.filter(field__search='hearts')
+        searched = Line.objects.filter(dialogue__search='hearts')
         self.assertSequenceEqual(searched, [self.verse2])
 
     def test_search_two_terms(self):
-        searched = TextFieldModel.objects.filter(field__search='heart bowel')
+        searched = Line.objects.filter(dialogue__search='heart bowel')
         self.assertSequenceEqual(searched, [self.verse2])
 
     def test_search_two_terms_with_partial_match(self):
-        searched = TextFieldModel.objects.filter(field__search='Robin killed')
+        searched = Line.objects.filter(dialogue__search='Robin killed')
         self.assertSequenceEqual(searched, [self.verse0])
 
 
-class MultipleFieldsTest(PostgreSQLTestCase):
+class MultipleFieldsTest(GrailTests, PostgreSQLTestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        verses = [
-            (
-                'Bravely bold Sir Robin, rode forth from Camelot. '
-                'He was not afraid to die, o Brave Sir Robin. '
-                'He was not at all afraid to be killed in nasty ways. '
-                'Brave, brave, brave, brave Sir Robin!'
-            ),
-            (
-                'He was not in the least bit scared to be mashed into a pulp, '
-                'Or to have his eyes gouged out, and his elbows broken. '
-                'To have his kneecaps split, and his body burned away, '
-                'And his limbs all hacked and mangled, brave Sir Robin!'
-            ),
-            (
-                'His head smashed in and his heart cut out, '
-                'And his liver removed and his bowels unplugged, '
-                'And his nostrils ripped and his bottom burned off,'
-                'And his --'
-            ),
-        ]
-        cls.verses = [NamedTextFieldModel.objects.create(name='Verse %s' % i, body=verse) for i, verse in enumerate(verses)]
-        cls.verse0, cls.verse1, cls.verse2 = cls.verses
-
-    def test_simple_on_body(self):
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
+    def test_simple_on_dialogue(self):
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
         ).filter(search='elbows')
         self.assertSequenceEqual(searched, [self.verse1])
 
-    def test_simple_on_name(self):
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
-        ).filter(search='verse')
+    def test_simple_on_scene(self):
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
+        ).filter(search='Forest')
         self.assertSequenceEqual(searched, self.verses)
 
     def test_non_exact_match(self):
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
         ).filter(search='heart')
         self.assertSequenceEqual(searched, [self.verse2])
 
     def test_search_two_terms(self):
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
-        ).filter(search='heart verse')
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
+        ).filter(search='heart forest')
         self.assertSequenceEqual(searched, [self.verse2])
 
     def test_terms_adjacent(self):
-        adjacent = NamedTextFieldModel.objects.create(name='foo', body='bar')
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
-        ).filter(search='foo')
-        self.assertSequenceEqual(searched, [adjacent])
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
-        ).filter(search='foobar')
+        searched = Line.objects.annotate(
+            search=SearchVector('character__name', 'dialogue'),
+        ).filter(search='minstrel')
+        self.assertSequenceEqual(searched, self.verses)
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
+        ).filter(search='minstrelbravely')
         self.assertSequenceEqual(searched, [])
 
     def test_search_with_null(self):
-        nulled = NamedTextFieldModel.objects.create(name='Verse after the minstrel has been killed', body=None)
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body'),
-        ).filter(search='kill')
-        self.assertSequenceEqual(searched, [self.verse0, nulled])
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue'),
+        ).filter(search='bedemir')
+        self.assertEqual(set(searched), {
+            self.bedemir0,
+            self.bedemir1,
+            self.crowd,
+            self.witch,
+            self.duck,
+        })
 
     def test_config_query_explicit(self):
-        french = NamedTextFieldModel.objects.create(
-            name='French knights',
-            body='Oh. Un cadeau. Oui oui.',
-        )
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body', config='french'),
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue', config='french'),
         ).filter(search=SearchQuery('cadeaux', config='french'))
-        self.assertSequenceEqual(searched, [french])
+        self.assertSequenceEqual(searched, [self.french])
 
     def test_config_query_implicit(self):
-        french = NamedTextFieldModel.objects.create(
-            name='French knights',
-            body='Oh. Un cadeau. Oui oui.',
-        )
-        searched = NamedTextFieldModel.objects.annotate(
-            search=SearchVector('name', 'body', config='french'),
+        searched = Line.objects.annotate(
+            search=SearchVector('scene__setting', 'dialogue', config='french'),
         ).filter(search='cadeaux')
-        self.assertSequenceEqual(searched, [french])
+        self.assertSequenceEqual(searched, [self.french])
+
+
+@modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
+class SearchVectorOptions(PostgreSQLTestCase):
+    pass

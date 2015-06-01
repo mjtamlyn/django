@@ -82,12 +82,40 @@ class TextFieldModel(models.Model):
         return self.field
 
 
-class NamedTextFieldModel(models.Model):
+class Scene(models.Model):
+    """
+    Model used to test full text search, populated with scenes from Monty
+    Python and the Holy Grail.
+    """
+    scene = models.CharField(max_length=255)
+    setting = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.scene
+
+
+class Character(models.Model):
+    """
+    Model used to test full text search, populated with Characters from Monty
+    Python and the Holy Grail.
+    """
     name = models.CharField(max_length=255)
-    body = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
+
+
+class Line(models.Model):
+    """
+    Model used to test full text search, populated with Characters from Monty
+    Python and the Holy Grail.
+    """
+    scene = models.ForeignKey('Scene')
+    character = models.ForeignKey('Character')
+    dialogue = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.dialogue or ''
 
 
 class RangesModel(PostgreSQLModel):

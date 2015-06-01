@@ -115,11 +115,31 @@ class Migration(migrations.Migration):
             bases=None,
         ),
         migrations.CreateModel(
-            name='NamedTextFieldModel',
+            name='Scene',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('scene', models.CharField(max_length=255)),
+                ('setting', models.CharField(max_length=255)),
+            ],
+            options=None,
+            bases=None,
+        ),
+        migrations.CreateModel(
+            name='Character',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('name', models.CharField(max_length=255)),
-                ('body', models.TextField(blank=True, null=True)),
+            ],
+            options=None,
+            bases=None,
+        ),
+        migrations.CreateModel(
+            name='Line',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('scene', models.ForeignKey('postgres_tests.Scene')),
+                ('character', models.ForeignKey('postgres_tests.Character')),
+                ('dialogue', models.TextField(blank=True, null=True)),
             ],
             options=None,
             bases=None,
