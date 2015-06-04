@@ -73,7 +73,6 @@ class SearchQuery(Value):
 
     BITAND = '&&'
     BITOR = '||'
-    INVERT = '!!'
 
     def __init__(self, value, output_field=None, **extra):
         self.config = extra.pop('config', self.config)
@@ -96,6 +95,21 @@ class SearchQuery(Value):
         combined = super(SearchQuery, self)._combine(other, connector, reversed, node)
         combined.output_field = SearchQueryField()
         return combined
+
+    # On Combinable, these are not implemented to reduce confusion with Q. In
+    # this case we are actually (ab)using them to do logical combination so
+    # it's consistent with other usage in Django.
+    def __or__(self, other):
+        return self._combine(other, self.BITOR, False)
+
+    def __ror__(self, other):
+        return self._combine(other, self.BITOR, True)
+
+    def __and__(self, other):
+        return self._combine(other, self.BITAND, False)
+
+    def __rand__(self, other):
+        return self._combine(other, self.BITAND, True)
 
     def __invert__(self):
         extra = {

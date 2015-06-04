@@ -171,11 +171,11 @@ class TestCombinations(GrailTests, PostgreSQLTestCase):
     def test_query_and(self):
         searched = Line.objects.annotate(
             search=SearchVector('scene__setting', 'dialogue'),
-        ).filter(search=SearchQuery('bedemir').bitand(SearchQuery('scales')))
+        ).filter(search=SearchQuery('bedemir') & SearchQuery('scales'))
         self.assertSequenceEqual(searched, [self.bedemir0])
 
     def test_query_or(self):
-        searched = Line.objects.filter(dialogue__search=SearchQuery('kneecaps').bitor(SearchQuery('nostrils')))
+        searched = Line.objects.filter(dialogue__search=SearchQuery('kneecaps') | SearchQuery('nostrils'))
         self.assertSequenceEqual(set(searched), {self.verse1, self.verse2})
 
     def test_query_invert(self):
