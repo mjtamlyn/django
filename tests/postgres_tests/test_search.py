@@ -13,7 +13,7 @@ from . import PostgreSQLTestCase
 from .models import Character, Line, Scene
 
 try:
-    from django.contrib.postgres.search import SearchVector, SearchQuery
+    from django.contrib.postgres.search import SearchRank, SearchVector, SearchQuery
 except ImportError:
     pass
 
@@ -51,17 +51,17 @@ class GrailTests(object):
         ) for verse in verses]
         cls.verse0, cls.verse1, cls.verse2 = cls.verses
 
-        witch_scene = Scene.objects.create(scene='Scene 5', setting="Sir Bedemir's Castle")
+        cls.witch_scene = Scene.objects.create(scene='Scene 5', setting="Sir Bedemir's Castle")
         bedemir = Character.objects.create(name='Bedemir')
         crowd = Character.objects.create(name='Crowd')
         witch = Character.objects.create(name='Witch')
         duck = Character.objects.create(name='Duck')
 
-        cls.bedemir0 = Line.objects.create(scene=witch_scene, character=bedemir, dialogue='We shall use my larger scales!')
-        cls.bedemir1 = Line.objects.create(scene=witch_scene, character=bedemir, dialogue='Right, remove the supports!')
-        cls.duck = Line.objects.create(scene=witch_scene, character=duck, dialogue=None)
-        cls.crowd = Line.objects.create(scene=witch_scene, character=crowd, dialogue='A witch! A witch!')
-        cls.witch = Line.objects.create(scene=witch_scene, character=witch, dialogue="It's a fair cop.")
+        cls.bedemir0 = Line.objects.create(scene=cls.witch_scene, character=bedemir, dialogue='We shall use my larger scales!')
+        cls.bedemir1 = Line.objects.create(scene=cls.witch_scene, character=bedemir, dialogue='Right, remove the supports!')
+        cls.duck = Line.objects.create(scene=cls.witch_scene, character=duck, dialogue=None)
+        cls.crowd = Line.objects.create(scene=cls.witch_scene, character=crowd, dialogue='A witch! A witch!')
+        cls.witch = Line.objects.create(scene=cls.witch_scene, character=witch, dialogue="It's a fair cop.")
 
         trojan_rabbit = Scene.objects.create(scene='Scene 8', setting="The castle of Our Master Ruiz' de lu la Ramper")
         guards = Character.objects.create(name='French Guards')
@@ -180,4 +180,33 @@ class TestCombinations(GrailTests, PostgreSQLTestCase):
 
     def test_query_invert(self):
         searched = Line.objects.filter(character=self.minstrel, dialogue__search=~SearchQuery('kneecaps'))
-        self.assertSequenceEqual(set(searched), {self.verse0, self.verse2})
+        self.assertEqual(set(searched), {self.verse0, self.verse2})
+
+
+@modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
+class TestRankingAndWeights(GrailTests, PostgreSQLTestCase):
+
+    def test_ranking(self):
+        searched = Line.objects.filter(character=self.minstrel).annotate(
+            rank=SearchRank(SearchVector('dialogue'), SearchQuery('brave sir robin')),
+        ).order_by('rank')
+        self.assertSequenceEqual(searched, [self.verse2, self.verse1, self.verse0])
+
+    def test_weights_in_vector(self):
+        vector = SearchVector('dialogue', weight='A') + SearchVector('character__name', weight='D')
+        searched = Line.objects.filter(scene=self.witch_scene).annotate(
+            rank=SearchRank(vector, SearchQuery('witch')),
+        ).order_by('-rank')[:2]
+        self.assertSequenceEqual(searched, [self.crowd, self.witch])
+
+        vector = SearchVector('dialogue', weight='D') + SearchVector('character__name', weight='A')
+        searched = Line.objects.filter(scene=self.witch_scene).annotate(
+            rank=SearchRank(vector, SearchQuery('witch')),
+        ).order_by('-rank')[:2]
+        self.assertSequenceEqual(searched, [self.witch, self.crowd])
+
+    def test_ranking_chaining(self):
+        searched = Line.objects.filter(character=self.minstrel).annotate(
+            rank=SearchRank(SearchVector('dialogue'), SearchQuery('brave sir robin')),
+        ).filter(rank__gt=0.3)
+        self.assertSequenceEqual(searched, [self.verse0])

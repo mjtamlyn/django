@@ -1,4 +1,4 @@
-from django.db.models import F, Field
+from django.db.models import F, Field, FloatField
 from django.db.models.expressions import Func, Value
 from django.db.models.functions import Coalesce
 from django.db.models.lookups import Lookup
@@ -36,6 +36,7 @@ class SearchVector(Func):
     function = 'to_tsvector'
     arg_joiner = " || ' ' || "
     ADD = '||'
+    _output_field = SearchVectorField()
 
     config = None
 
@@ -45,18 +46,22 @@ class SearchVector(Func):
         self.source_expressions = [
             Coalesce(expression, Value('')) if isinstance(expression, F) else expression for expression in self.source_expressions
         ]
-        self._output_field = SearchVectorField()
 
         self.config = self.extra['config'] = self.extra.get('config')
-        self.invert = self.extra.get('invert', False)
+        self.weight = self.extra.get('weight', None)
 
     def as_sql(self, compiler, connection, function=None, template=None):
         if template is None:
             if self.config:
                 template = "%(function)s('%(config)s', %(expressions)s)"
-            if self.invert:
-                template = "!!(%s)" % self.invert
-        return super(SearchVector, self).as_sql(compiler, connection, function=function, template=template)
+            else:
+                template = self.template
+        sql, params = super(SearchVector, self).as_sql(compiler, connection, function=function, template=template)
+        extra_params = []
+        if self.weight:
+            weight_sql, extra_params = compiler.compile(Value(self.weight))
+            sql = "setweight({}, {})".format(sql, weight_sql)
+        return sql, params + extra_params
 
     def _combine(self, other, connector, reversed, node=None):
         if not type(other) == type(self) or not self.config == other.config:
@@ -69,7 +74,7 @@ class SearchVector(Func):
 class SearchQuery(Value):
     config = None
     invert = False
-    output_field = SearchQueryField()
+    _output_field = SearchQueryField()
 
     BITAND = '&&'
     BITOR = '||'
@@ -78,7 +83,6 @@ class SearchQuery(Value):
         self.config = extra.pop('config', self.config)
         self.invert = extra.pop('invert', self.invert)
         super(SearchQuery, self).__init__(value, output_field=output_field)
-        self._output_field = SearchQueryField()
 
     def as_sql(self, compiler, connection):
         params = [self.value]
@@ -118,6 +122,11 @@ class SearchQuery(Value):
         }
         obj = type(self)(self.value, **extra)
         return obj
+
+
+class SearchRank(Func):
+    function = 'ts_rank'
+    _output_field = FloatField()
 
 
 SearchVectorField.register_lookup(SearchVectorExact)
