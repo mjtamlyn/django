@@ -192,6 +192,12 @@ class TestRankingAndWeights(GrailTests, PostgreSQLTestCase):
         ).order_by('rank')
         self.assertSequenceEqual(searched, [self.verse2, self.verse1, self.verse0])
 
+    def test_rank_passing_untyped_args(self):
+        searched = Line.objects.filter(character=self.minstrel).annotate(
+            rank=SearchRank('dialogue', 'brave sir robin'),
+        ).order_by('rank')
+        self.assertSequenceEqual(searched, [self.verse2, self.verse1, self.verse0])
+
     def test_weights_in_vector(self):
         vector = SearchVector('dialogue', weight='A') + SearchVector('character__name', weight='D')
         searched = Line.objects.filter(scene=self.witch_scene).annotate(
@@ -204,6 +210,13 @@ class TestRankingAndWeights(GrailTests, PostgreSQLTestCase):
             rank=SearchRank(vector, SearchQuery('witch')),
         ).order_by('-rank')[:2]
         self.assertSequenceEqual(searched, [self.witch, self.crowd])
+
+    def test_ranked_custom_weights(self):
+        vector = SearchVector('dialogue', weight='D') + SearchVector('character__name', weight='A')
+        searched = Line.objects.filter(scene=self.witch_scene).annotate(
+            rank=SearchRank(vector, SearchQuery('witch'), weights=[1, 0, 0, 0.5]),
+        ).order_by('-rank')[:2]
+        self.assertSequenceEqual(searched, [self.crowd, self.witch])
 
     def test_ranking_chaining(self):
         searched = Line.objects.filter(character=self.minstrel).annotate(

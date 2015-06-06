@@ -1,4 +1,4 @@
-from django.db.models import F, Field, FloatField
+from django.db.models import Field, FloatField
 from django.db.models.expressions import Func, Value
 from django.db.models.functions import Coalesce
 from django.db.models.lookups import Lookup
@@ -8,7 +8,7 @@ class SearchVectorExact(Lookup):
     lookup_name = 'exact'
 
     def process_rhs(self, qn, connection):
-        if not hasattr(self.rhs, 'output_field'):
+        if not hasattr(self.rhs, 'resolve_expression'):
             self.rhs = SearchQuery(self.rhs, config=self.lhs.config)
         rhs, rhs_params = super(SearchVectorExact, self).process_rhs(qn, connection)
         return rhs, rhs_params
@@ -44,11 +44,14 @@ class SearchVector(Func):
         super(SearchVector, self).__init__(*expressions, **extra)
 
         self.source_expressions = [
-            Coalesce(expression, Value('')) if isinstance(expression, F) else expression for expression in self.source_expressions
+            Coalesce(expression, Value('')) for expression in self.source_expressions
         ]
 
         self.config = self.extra['config'] = self.extra.get('config')
-        self.weight = self.extra.get('weight', None)
+        weight = self.extra.get('weight', None)
+        if weight is not None and not hasattr(weight, 'resolve_expression'):
+            weight = Value(weight)
+        self.weight = weight
 
     def as_sql(self, compiler, connection, function=None, template=None):
         if template is None:
@@ -59,7 +62,7 @@ class SearchVector(Func):
         sql, params = super(SearchVector, self).as_sql(compiler, connection, function=function, template=template)
         extra_params = []
         if self.weight:
-            weight_sql, extra_params = compiler.compile(Value(self.weight))
+            weight_sql, extra_params = compiler.compile(self.weight)
             sql = "setweight({}, {})".format(sql, weight_sql)
         return sql, params + extra_params
 
@@ -127,6 +130,27 @@ class SearchQuery(Value):
 class SearchRank(Func):
     function = 'ts_rank'
     _output_field = FloatField()
+
+    def __init__(self, vector, query, **extra):
+        if not hasattr(vector, 'resolve_expression'):
+            vector = SearchVector(vector)
+        if not hasattr(query, 'resolve_expression'):
+            query = SearchQuery(query)
+        weights = extra.get('weights', None)
+        if weights is not None and not hasattr(weights, 'resolve_expression'):
+            weights = Value(weights)
+        self.weights = weights
+        super(SearchRank, self).__init__(vector, query, **extra)
+
+    def as_sql(self, compiler, connection, function=None, template=None):
+        extra_params = []
+        if template is None and self.extra.get('weights'):
+            if self.weights:
+                template = '%(function)s(%(weights)s, %(expressions)s)'
+                weight_sql, extra_params = compiler.compile(self.weights)
+                self.extra['weights'] = weight_sql
+        sql, params = super(SearchRank, self).as_sql(compiler, connection, function=function, template=template)
+        return sql, extra_params + params
 
 
 SearchVectorField.register_lookup(SearchVectorExact)
