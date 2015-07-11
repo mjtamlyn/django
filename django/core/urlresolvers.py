@@ -150,6 +150,10 @@ def get_resolver(urlconf):
     if urlconf is None:
         from django.conf import settings
         urlconf = settings.ROOT_URLCONF
+    if isinstance(urlconf, six.string_types):
+        module = import_module(urlconf)
+        if hasattr(module, 'resolver'):
+            return module.resolver('/')
     return RegexURLResolver(r'^/', urlconf)
 
 
@@ -293,6 +297,8 @@ class RegexURLResolver(LocaleRegexProvider):
         apps = {}
         language_code = get_language()
         for pattern in reversed(self.url_patterns):
+            if hasattr(pattern, '_reverse_with_prefix'):
+                pass
             if hasattr(pattern, '_callback_str'):
                 self._callback_strs.add(pattern._callback_str)
             elif hasattr(pattern, '_callback'):

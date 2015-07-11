@@ -95,6 +95,8 @@ def url(regex, view, kwargs=None, name=None, prefix=''):
     if isinstance(view, (list, tuple)):
         # For include(...) processing.
         urlconf_module, app_name, namespace = view
+        if hasattr(urlconf_module, 'resolver'):
+            return urlconf_module.resolver(prefix)
         return RegexURLResolver(regex, urlconf_module, kwargs, app_name=app_name, namespace=namespace)
     else:
         if isinstance(view, six.string_types):
