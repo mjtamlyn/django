@@ -1,0 +1,84 @@
+======
+Search
+======
+
+A common task to perform is to take user input and search the data for the
+user's request. In the most simple case, this could be filtering a list of
+objects by a category. A more complex use case might require building a
+searching solution with weighting, categorisation, highlighting, multiple
+languages and so on. This document explains some of the possible use cases and
+the tools you can use.
+
+We will refer to the same models as used in the :doc:`querying
+guide</topics/db/queries>`.
+
+Use Cases
+=========
+
+Using standard textual queries
+------------------------------
+
+Text based fields have a selection of simple operations on them which can be
+used to match against. For example, you may wish to allow lookup up an author
+like so::
+
+    >>> Author.objects.filter(name__contains='Terry')
+    ... [<Author: Terry Gilliam>, <Author: Terry Jones>]
+
+This is a very fragile solution - it requires the user to know an exact
+substring of the author's name. A better approach could be to use
+:lookup:`icontains`, but this is only a minor improvement.
+
+Using your database's more advanced comparison functions
+--------------------------------------------------------
+
+If you are using PostgreSQL, Django provides :doc:`a selection of database
+specific tools </ref/contrib/postgres/search>` to allow you to leverage more
+complex querying options. Other databases have a different selection of tools,
+possibly via plugins or user defined functions. Django does not include any
+support for those at this time. We will use some examples from PostgreSQL to
+demonstrate the kind of functionality databases may have.
+
+.. note::
+    All of the searching tools provided by `django.contrib.postgres` are
+    constructed entirely on public APIs such as :doc:`custom lookups` and
+    :doc:`database functions`. Depending on your database, you should be able
+    to construct queries to allow similar APIs. If there are specific things
+    which cannot be achieved this way, please open a ticket.
+
+In the above example, we determined that a case insensitive lookup would be
+more useful. When dealing with non-english names, a further improvement is to
+use unaccented comparison::
+
+    >>> Author.objects.filter(name__unaccent__icontains='Zoë')
+    ... [<Author: Zoë TODO (Wanamaker?)>, <Author: Zoe Ball>, <Zoey Dechanel>]
+
+This shows another issue, where we are matching against a different spelling of
+the name. In this case we have an asymmetry though - a search for `Zoe` will
+pick up `Zoey`, but not the reverse. Another option would be to use a trigram
+comparison, which compares sequences of names
+
+.. TODO::
+    Hopefully this will not work, but an example using Christophe(r) will do.
+    Then I can use this as a soundex example.
+
+Example ::
+
+    >>> Author.objects.filter(name__unaccent__lower__trigram='Zoey')
+    ... [<Author: Zoë TODO (Wanamaker?)>, <Author: Zoe Ball>, <Zoey Dechanel>]
+
+
+.. TODO::
+    Add a third/forth example with some ordering by exactness.
+
+
+The correct choice of comparison functions here depends hugely on your
+particular data set - the language(s) used, the type of text being searched and
+so on. All of the examples we have seen are on short strings where the user is
+likely to enter something close (by varying definitions) to the source data.
+
+Document based search
+---------------------
+
+- PG
+- ES
