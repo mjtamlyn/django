@@ -50,32 +50,28 @@ In the above example, we determined that a case insensitive lookup would be
 more useful. When dealing with non-english names, a further improvement is to
 use unaccented comparison::
 
-    >>> Author.objects.filter(name__unaccent__icontains='Zoë')
-    ... [<Author: Zoë TODO (Wanamaker?)>, <Author: Zoe Ball>, <Zoey Dechanel>]
+    >>> Author.objects.filter(name__unaccent__icontains='Helen')
+    ... [<Author: Helen Mirren>, <Author: Helena Bonham Carter>, <Actor: Hélène Joy>]
 
 This shows another issue, where we are matching against a different spelling of
-the name. In this case we have an asymmetry though - a search for `Zoe` will
-pick up `Zoey`, but not the reverse. Another option would be to use a trigram
-comparison, which compares sequences of names
-
-.. TODO::
-    Hopefully this will not work, but an example using Christophe(r) will do.
-    Then I can use this as a soundex example.
+the name. In this case we have an asymmetry though - a search for `Helen`
+will pick up `Helen` or `Hélène`, but not the reverse. Another option would be
+to use a trigram comparison, which compares sequences of letters.
 
 Example ::
 
-    >>> Author.objects.filter(name__unaccent__lower__trigram='Zoey')
-    ... [<Author: Zoë TODO (Wanamaker?)>, <Author: Zoe Ball>, <Zoey Dechanel>]
+    >>> Author.objects.filter(name__unaccent__lower__trigram='Helene')
+    ... [<Author: Helen Mirren>, <Actor: Hélène Joy>]
 
-
-.. TODO::
-    Add a third/forth example with some ordering by exactness.
-
+Now we have a different problem - the longer name of Helena Bonham Carter does
+not show up as it is much longer.
 
 The correct choice of comparison functions here depends hugely on your
 particular data set - the language(s) used, the type of text being searched and
 so on. All of the examples we have seen are on short strings where the user is
 likely to enter something close (by varying definitions) to the source data.
+For human names, none of the tools work that well, and you should consider the
+correct tool for the data you have.
 
 Document based search
 ---------------------
