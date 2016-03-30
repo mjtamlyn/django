@@ -57,8 +57,16 @@ class GrailTests(object):
         witch = Character.objects.create(name='Witch')
         duck = Character.objects.create(name='Duck')
 
-        cls.bedemir0 = Line.objects.create(scene=cls.witch_scene, character=bedemir, dialogue='We shall use my larger scales!')
-        cls.bedemir1 = Line.objects.create(scene=cls.witch_scene, character=bedemir, dialogue='Right, remove the supports!')
+        cls.bedemir0 = Line.objects.create(
+            scene=cls.witch_scene,
+            character=bedemir,
+            dialogue='We shall use my larger scales!',
+        )
+        cls.bedemir1 = Line.objects.create(
+            scene=cls.witch_scene,
+            character=bedemir,
+            dialogue='Right, remove the supports!',
+        )
         cls.duck = Line.objects.create(scene=cls.witch_scene, character=duck, dialogue=None)
         cls.crowd = Line.objects.create(scene=cls.witch_scene, character=crowd, dialogue='A witch! A witch!')
         cls.witch = Line.objects.create(scene=cls.witch_scene, character=witch, dialogue="It's a fair cop.")
