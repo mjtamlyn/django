@@ -110,8 +110,8 @@ class Line(models.Model):
     Model used to test full text search, populated with Characters from Monty
     Python and the Holy Grail.
     """
-    scene = models.ForeignKey('Scene')
-    character = models.ForeignKey('Character')
+    scene = models.ForeignKey('Scene', on_delete=models.CASCADE)
+    character = models.ForeignKey('Character', on_delete=models.CASCADE)
     dialogue = models.TextField(blank=True, null=True)
 
     def __str__(self):

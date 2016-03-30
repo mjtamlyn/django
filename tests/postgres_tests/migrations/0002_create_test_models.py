@@ -137,8 +137,8 @@ class Migration(migrations.Migration):
             name='Line',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('scene', models.ForeignKey('postgres_tests.Scene')),
-                ('character', models.ForeignKey('postgres_tests.Character')),
+                ('scene', models.ForeignKey('postgres_tests.Scene', on_delete=models.SET_NULL)),
+                ('character', models.ForeignKey('postgres_tests.Character', on_delete=models.SET_NULL)),
                 ('dialogue', models.TextField(blank=True, null=True)),
             ],
             options=None,
