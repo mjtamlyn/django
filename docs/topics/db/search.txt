@@ -5,7 +5,7 @@ Search
 A common task to perform is to take user input and search the data for the
 user's request. In the most simple case, this could be filtering a list of
 objects by a category. A more complex use case might require building a
-searching solution with weighting, categorisation, highlighting, multiple
+searching solution with weighting, categorization, highlighting, multiple
 languages and so on. This document explains some of the possible use cases and
 the tools you can use.
 
@@ -48,7 +48,7 @@ demonstrate the kind of functionality databases may have.
     things which cannot be achieved this way, please open a ticket.
 
 In the above example, we determined that a case insensitive lookup would be
-more useful. When dealing with non-english names, a further improvement is to
+more useful. When dealing with non-English names, a further improvement is to
 use :lookup:`unaccented comparison <unaccent>`::
 
     >>> Author.objects.filter(name__unaccent__icontains='Helen')
@@ -107,22 +107,22 @@ PostgreSQL support
 PostgreSQL also has its own full text search implementation built into the
 database. Whilst not as powerful some other search engines, it has the
 advantage of being inside your database, and so can easily be combined with
-other relational queries such as categorisation.
+other relational queries such as categorization.
 
 A simple query might be to select all the blog entries which mention potatoes::
 
-    >>> Entry.objects.filter(body_text__search='Potato')
-    [<Entry: Potato recipes>, <Entry: My trip to Ireland>]
+    >>> Entry.objects.filter(body_text__search='Cheese')
+    [<Entry: Cheese on Toast recipes>, <Entry: Pizza recipes>]
 
 You can also filter on a combination of fields, and on related models::
 
     >>> Entry.objects.annotate(
-            search=SearchVector('blog__tagline', 'body_text'),
-        ).filter(search='Potatoes')
+    ...     search=SearchVector('blog__tagline', 'body_text'),
+    ... ).filter(search='Cheese')
     [
-        <Entry: Potato recipes>,
-        <Entry: My trip to Ireland>,
-        <Entry: Welcome to the vegetable cooking blog>,
+        <Entry: Cheese on Toast recipes>,
+        <Entry: Pizza Recipes>,
+        <Entry: Dairy farming in Argentina>,
     ]
 
 More information on what can be done with the PostgreSQL full text search can

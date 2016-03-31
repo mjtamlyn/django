@@ -93,6 +93,7 @@ class SimpleSearchTest(GrailTests, PostgreSQLTestCase):
 
     def test_search_two_terms(self):
         searched = Line.objects.filter(dialogue__search='heart bowel')
+        print(searched.query)
         self.assertSequenceEqual(searched, [self.verse2])
 
     def test_search_two_terms_with_partial_match(self):

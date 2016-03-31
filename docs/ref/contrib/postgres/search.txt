@@ -1,0 +1,148 @@
+================
+Full text search
+================
+
+These classes are available from the ``django.contrib.postgres.search`` module.
+Together, they allow the use of the full text search engine in PostgreSQL. For
+more information about searching, see the :doc:`topic documentation
+</topics/db/search>`. We will use the models defined in the
+:doc:`/topics/db/queries` document.
+
+.. currentmodule:: django.contrib.postgres.search
+
+The search lookup
+=================
+
+.. fieldlookup:: search
+
+The simplest possible way to use full text search is to search a single term
+against a single column in the database. For example::
+
+    >>> Entry.objects.filter(body_text__search='Cheese')
+    [<Entry: Cheese on Toast recipes>, <Entry: Pizza Recipes>]
+
+This will create a ``to_tsvector`` in the database from the ``body_text`` field
+and create a ``plainto_tsquery`` from the search term ``'Potato'``, both using
+the default search configuration of your database. The two are then matched
+together and postive results returned.
+
+``SearchVector``
+================
+
+.. class:: SearchVector(\*expressions, config=None, weight=None)
+
+Searching against a single field is great, but it is rather limiting. The
+``Entry`` instances we are searhching belong to a ``Blog``, which has a
+``tagline`` field. To query against both fields, we use a ``SearchVector``::
+
+    >>> Entry.objects.annotate(
+    ...     search=SearchVector('body_text', 'blog__tagline'),
+    ... ).filter(search='Cheese')
+    [<Entry: Cheese on Toast recipes>, <Entry: Pizza Recipes>]
+
+The arguments passed can be any :class:`~django.db.models.Expression`, or the
+name of a field. Multiple arguments will be concatenated together using a
+space, so the search document includes both.
+
+``SearchVector`` objects can be combined together, allowing you to reuse
+certain search vectors. For example::
+
+    >>> Entry.objects.annotate(
+    ...     search=SearchVector('body_text') + SearchVector('blog__tagline'),
+    ... ).filter(search='Cheese')
+    [<Entry: Cheese on Toast recipes>, <Entry: Pizza Recipes>]
+
+``SearchQuery``
+===============
+
+.. class:: SearchQuery(config=None)
+
+``SearchQuery`` translates the terms the user provides into a search query
+object it can compare to a search vector. By default, all of the words the user
+provides are passed through the stemming algorithms, and then it looks for
+matches for all of the resulting terms.
+
+If you want to provide more flexibility to the user, for example allowing them
+to find records where ``potato`` OR ``penguin`` are contained in the result, or
+results not containing ``sausage``::
+
+    >>> SearchQuery('potato') & SearchQuery('ireland')  # potato AND ireland
+    >>> SearchQuery('potato') | SearchQuery('penguin')  # potato OR penguin
+    >>> ~SearchQuery('sausage')  # NOT sausage
+
+``SearchRank``
+==============
+
+.. class:: SearchRank(vector, query, weights=None)
+
+So far, we have just returned the results for which any match between the
+vector and the query are possible. It is likely you may wish to order the
+results by some level of relevancy. PostgreSQL provides a ranking function
+which takes into account how often the query terms appear in the document, how
+close together the terms are in the document, and how important is the part of
+the document where they occur. The better the match, the higher the value of
+the rank. We can now order by relevancy::
+
+    >>> vector = SearchVector('body_text')
+    >>> query = SearchQuery('cheese')
+    >>> Entry.objects.annotate(rank=SearchRank(vector, query)).order_by('-rank')
+    [<Entry: Cheese on Toast recipes>, <Entry: Pizza recipes>]
+
+Changing the search configuration
+=================================
+
+You can specify the ``config`` attribute to a ``SearchVector`` and
+``SearchQuery`` to use a different search configuration. This allows you to use
+a different language parsers and dictionaries as defined by the database::
+
+    >>> Entry.objects.annotate(
+    ...     search=SearchVector('body_text', config='french'),
+    ... ).filter(search=SearchQuery('œuf', config='french'))
+    [<Entry: Pain perdu>]
+
+The value of config could also be stored in another column::
+
+    >>> Entry.objects.annotate(
+    ...     search=SearchVector('body_text', config=F('blog__language')),
+    ... ).filter(search=SearchQuery('œuf', config=F('blog__language')))
+    [<Entry: Pain perdu>]
+
+Weighting queries
+=================
+
+Not every field has the same relevance to the query, so you can set weights of
+various vectors before you combine them::
+
+    >>> vector = SearchVector('body_text', weight='A') + SearchVector('blog__tagline', weight='B')
+    >>> query = SearchQuery('cheese')
+    >>> Entry.objects.annotate(rank=SearchRank(vector, query)).filter(rank__gte=0.3).order_by('rank')
+
+The weight should be one of the following letters: ``'D', 'C', 'B', 'A'``. By
+default, these weights refer to the numbers ``0.1, 0.2, 0.4, 1.0``
+respectively. If you wish to make them behave differently, you can pass an
+array of four floats to ``SearchRank`` as ``weights``::
+
+    >>> Entry.objects.annotate(rank=SearchRank(vector, query), weights=[0.2, 0.4, 0.6, 0.8]).filter(rank__gte=0.3).order_by('-rank')
+
+Performance
+===========
+
+No specific setup is necessary to use any of these functions, however beyond a
+few hundred records you are likely to run into performance problems. Full text
+search is a more intensive process than comparing the size of an integer for
+example.
+
+In the event that all the fields you are querying on are contained within one
+particular model, you can create a functional index which matches the search
+vector you wish to use. For example::
+
+    CREATE INDEX body_text_search ON blog_entry (to_tsvector('body_text'));
+
+This index will then be used by subsequent queries. In many cases this will be
+sufficient.
+
+If this approach becomes too slow, you can add a ``tsvector`` column to your
+table and use triggers to populate it. This approach is described in the
+`PostgreSQL documentation`_.
+
+.. _PostgreSQL documentation: http://www.postgresql.org/docs/current/static/textsearch-features.html#TEXTSEARCH-UPDATE-TRIGGERS
