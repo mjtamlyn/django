@@ -24,7 +24,10 @@ against a single column in the database. For example::
 This will create a ``to_tsvector`` in the database from the ``body_text`` field
 and create a ``plainto_tsquery`` from the search term ``'Potato'``, both using
 the default search configuration of your database. The two are then matched
-together and postive results returned.
+together and positive results returned.
+
+To use the ``search`` lookup you will need to ensure that
+``django.contrib.postgres`` is in your :setting:`INSTALLED_APPS`.
 
 ``SearchVector``
 ================
@@ -32,7 +35,7 @@ together and postive results returned.
 .. class:: SearchVector(\*expressions, config=None, weight=None)
 
 Searching against a single field is great, but it is rather limiting. The
-``Entry`` instances we are searhching belong to a ``Blog``, which has a
+``Entry`` instances we are searching belong to a ``Blog``, which has a
 ``tagline`` field. To query against both fields, we use a ``SearchVector``::
 
     >>> Entry.objects.annotate(

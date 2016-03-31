@@ -144,12 +144,16 @@ class SearchRank(Func):
 
     def as_sql(self, compiler, connection, function=None, template=None):
         extra_params = []
+        extra_context = {}
         if template is None and self.extra.get('weights'):
             if self.weights:
                 template = '%(function)s(%(weights)s, %(expressions)s)'
                 weight_sql, extra_params = compiler.compile(self.weights)
-                self.extra['weights'] = weight_sql
-        sql, params = super(SearchRank, self).as_sql(compiler, connection, function=function, template=template)
+                extra_context['weights'] = weight_sql
+        sql, params = super(SearchRank, self).as_sql(
+            compiler, connection,
+            function=function, template=template, **extra_context
+        )
         return sql, extra_params + params
 
 

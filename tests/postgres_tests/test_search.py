@@ -18,7 +18,7 @@ except ImportError:
     pass
 
 
-class GrailTests(object):
+class GrailTestData(object):
 
     @classmethod
     def setUpTestData(cls):
@@ -81,7 +81,7 @@ class GrailTests(object):
 
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
-class SimpleSearchTest(GrailTests, PostgreSQLTestCase):
+class SimpleSearchTest(GrailTestData, PostgreSQLTestCase):
 
     def test_simple(self):
         searched = Line.objects.filter(dialogue__search='elbows')
@@ -101,7 +101,7 @@ class SimpleSearchTest(GrailTests, PostgreSQLTestCase):
         self.assertSequenceEqual(searched, [self.verse0])
 
 
-class MultipleFieldsTest(GrailTests, PostgreSQLTestCase):
+class MultipleFieldsTest(GrailTestData, PostgreSQLTestCase):
 
     def test_simple_on_dialogue(self):
         searched = Line.objects.annotate(
@@ -163,7 +163,7 @@ class MultipleFieldsTest(GrailTests, PostgreSQLTestCase):
 
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
-class TestCombinations(GrailTests, PostgreSQLTestCase):
+class TestCombinations(GrailTestData, PostgreSQLTestCase):
 
     def test_vector_add(self):
         searched = Line.objects.annotate(
@@ -193,7 +193,7 @@ class TestCombinations(GrailTests, PostgreSQLTestCase):
 
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
-class TestRankingAndWeights(GrailTests, PostgreSQLTestCase):
+class TestRankingAndWeights(GrailTestData, PostgreSQLTestCase):
 
     def test_ranking(self):
         searched = Line.objects.filter(character=self.minstrel).annotate(
