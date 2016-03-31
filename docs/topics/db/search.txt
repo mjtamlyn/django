@@ -23,7 +23,7 @@ used to match against. For example, you may wish to allow lookup up an author
 like so::
 
     >>> Author.objects.filter(name__contains='Terry')
-    ... [<Author: Terry Gilliam>, <Author: Terry Jones>]
+    [<Author: Terry Gilliam>, <Author: Terry Jones>]
 
 This is a very fragile solution - it requires the user to know an exact
 substring of the author's name. A better approach could be to use
@@ -41,40 +41,89 @@ demonstrate the kind of functionality databases may have.
 
 .. note::
     All of the searching tools provided by `django.contrib.postgres` are
-    constructed entirely on public APIs such as :doc:`custom lookups` and
-    :doc:`database functions`. Depending on your database, you should be able
-    to construct queries to allow similar APIs. If there are specific things
-    which cannot be achieved this way, please open a ticket.
+    constructed entirely on public APIs such as :doc:`custom lookups
+    </ref/models/lookups>` and :doc:`database functions
+    </ref/models/database-functions>`. Depending on your database, you should
+    be able to construct queries to allow similar APIs. If there are specific
+    things which cannot be achieved this way, please open a ticket.
 
 In the above example, we determined that a case insensitive lookup would be
 more useful. When dealing with non-english names, a further improvement is to
-use unaccented comparison::
+use :lookup:`unaccented comparison <unaccent>`::
 
     >>> Author.objects.filter(name__unaccent__icontains='Helen')
-    ... [<Author: Helen Mirren>, <Author: Helena Bonham Carter>, <Actor: Hélène Joy>]
+    [<Author: Helen Mirren>, <Author: Helena Bonham Carter>, <Actor: Hélène Joy>]
 
 This shows another issue, where we are matching against a different spelling of
-the name. In this case we have an asymmetry though - a search for `Helen`
-will pick up `Helen` or `Hélène`, but not the reverse. Another option would be
-to use a trigram comparison, which compares sequences of letters.
+the name. In this case we have an asymmetry though - a search for ``Helen``
+will pick up ``Helena`` or ``Hélène``, but not the reverse. Another option
+would be to use a trigram comparison, which compares sequences of letters.
 
 Example ::
 
-    >>> Author.objects.filter(name__unaccent__lower__trigram='Helene')
-    ... [<Author: Helen Mirren>, <Actor: Hélène Joy>]
+    >>> Author.objects.filter(name__unaccent__lower__trigram='Hélène')
+    [<Author: Helen Mirren>, <Actor: Hélène Joy>]
 
 Now we have a different problem - the longer name of Helena Bonham Carter does
-not show up as it is much longer.
+not show up as it is much longer. Trigram searches consider all combinations of
+three letters, and compares how many appear in both search and source strings.
+For the longer name, there are more combinations which appear in the source
+string so it is no longer considered a close match.
 
-The correct choice of comparison functions here depends hugely on your
-particular data set - the language(s) used, the type of text being searched and
-so on. All of the examples we have seen are on short strings where the user is
-likely to enter something close (by varying definitions) to the source data.
-For human names, none of the tools work that well, and you should consider the
-correct tool for the data you have.
+The correct choice of comparison functions here depends on your particular data
+set, for example the language(s) used and the type of text being searched. All
+of the examples we have seen are on short strings where the user is likely to
+enter something close (by varying definitions) to the source data.
 
 Document based search
 ---------------------
 
-- PG
-- ES
+Simple database operations are too simple an approach when you start
+considering large blocks of text. Whereas the examples above can be thought of
+as operations on a string of characters, full text search looks at the actual
+words. Depending on the system used, it is likely to use some of the following
+ideas:
+
+- Ignoring "stop words" such as "a", "the", "and".
+- Stemming words, so that "pony" and "ponies" are considered similar.
+- Weighting words based on how frequently they appear in the text, or are in
+  more important fields such as the title or keywords.
+
+There are many alternatives for using searching software, some of the most
+prominent are Elastic_ and Solr_. These are full document based search
+solutions. To use them with data from Django models, you will need a
+layer which translates your data into a textual document, including
+back-references to the database ids. When a search returns using the engine
+returns a certain document, you can then look it up in the database. There are
+a variety of third party libraries which are designed to help with this
+process.
+
+.. _Elastic: https://www.elastic.co/
+.. _Solr: http://lucene.apache.org/solr/
+
+PostgreSQL support
+^^^^^^^^^^^^^^^^^^
+
+PostgreSQL also has its own full text search implementation built into the
+database. Whilst not as powerful some other search engines, it has the
+advantage of being inside your database, and so can easily be combined with
+other relational queries such as categorisation.
+
+A simple query might be to select all the blog entries which mention potatoes::
+
+    >>> Entry.objects.filter(body_text__search='Potato')
+    [<Entry: Potato recipes>, <Entry: My trip to Ireland>]
+
+You can also filter on a combination of fields, and on related models::
+
+    >>> Entry.objects.annotate(
+            search=SearchVector('blog__tagline', 'body_text'),
+        ).filter(search='Potatoes')
+    [
+        <Entry: Potato recipes>,
+        <Entry: My trip to Ireland>,
+        <Entry: Welcome to the vegetable cooking blog>,
+    ]
+
+More information on what can be done with the PostgreSQL full text search can
+be found in the :doc:`reference documentation </ref/contrib/postgres/search>`.
