@@ -54,13 +54,11 @@ class SearchVector(SearchVectorCombinable, Func):
 
     def __init__(self, *expressions, **extra):
         super(SearchVector, self).__init__(*expressions, **extra)
-
         self.source_expressions = [
             Coalesce(expression, Value('')) for expression in self.source_expressions
         ]
-
         self.config = self.extra['config'] = self.extra.get('config')
-        weight = self.extra.get('weight', None)
+        weight = self.extra.get('weight')
         if weight is not None and not hasattr(weight, 'resolve_expression'):
             weight = Value(weight)
         self.weight = weight
@@ -75,7 +73,7 @@ class SearchVector(SearchVectorCombinable, Func):
         extra_params = []
         if self.weight:
             weight_sql, extra_params = compiler.compile(self.weight)
-            sql = "setweight({}, {})".format(sql, weight_sql)
+            sql = 'setweight({}, {})'.format(sql, weight_sql)
         return sql, params + extra_params
 
 
@@ -101,12 +99,12 @@ class SearchQuery(Value):
     def as_sql(self, compiler, connection):
         params = [self.value]
         if self.config:
-            template = "plainto_tsquery(%s, %s)"
+            template = 'plainto_tsquery(%s, %s)'
             params = [self.config, self.value]
         else:
-            template = "plainto_tsquery(%s)"
+            template = 'plainto_tsquery(%s)'
         if self.invert:
-            template = "!!({})".format(template)
+            template = '!!({})'.format(template)
         return template, params
 
     def _combine(self, other, connector, reversed, node=None):
@@ -134,8 +132,7 @@ class SearchQuery(Value):
             'invert': not self.invert,
             'config': self.config,
         }
-        obj = type(self)(self.value, **extra)
-        return obj
+        return type(self)(self.value, **extra)
 
 
 class SearchRank(Func):
@@ -147,7 +144,7 @@ class SearchRank(Func):
             vector = SearchVector(vector)
         if not hasattr(query, 'resolve_expression'):
             query = SearchQuery(query)
-        weights = extra.get('weights', None)
+        weights = extra.get('weights')
         if weights is not None and not hasattr(weights, 'resolve_expression'):
             weights = Value(weights)
         self.weights = weights

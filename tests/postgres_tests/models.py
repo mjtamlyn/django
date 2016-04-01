@@ -82,11 +82,9 @@ class TextFieldModel(models.Model):
         return self.field
 
 
+# Scene/Character/Line models are used to test full text search. They're
+# populated with content from Monty Python and the Holy Grail.
 class Scene(models.Model):
-    """
-    Model used to test full text search, populated with scenes from Monty
-    Python and the Holy Grail.
-    """
     scene = models.CharField(max_length=255)
     setting = models.CharField(max_length=255)
 
@@ -95,10 +93,6 @@ class Scene(models.Model):
 
 
 class Character(models.Model):
-    """
-    Model used to test full text search, populated with Characters from Monty
-    Python and the Holy Grail.
-    """
     name = models.CharField(max_length=255)
 
     def __str__(self):
@@ -106,12 +100,8 @@ class Character(models.Model):
 
 
 class Line(models.Model):
-    """
-    Model used to test full text search, populated with Characters from Monty
-    Python and the Holy Grail.
-    """
-    scene = models.ForeignKey('Scene', on_delete=models.CASCADE)
-    character = models.ForeignKey('Character', on_delete=models.CASCADE)
+    scene = models.ForeignKey(Scene, models.CASCADE)
+    character = models.ForeignKey(Character, models.CASCADE)
     dialogue = models.TextField(blank=True, null=True)
 
     def __str__(self):

@@ -1,21 +1,16 @@
 """
-Test Postgres FTS.
+Test PostgreSQL full text search.
 
 These tests use dialogue from the 1975 film Monty Python and the Holy Grail.
-All text remains copyright Python (Monty) Pictures. With thanks to
-sacred-texts.com for the transcript.
+All text copyright Python (Monty) Pictures. Thanks to sacred-texts.com for the
+transcript.
 """
-
-
-from django.test import modify_settings
+from django.contrib.postgres.search import SearchRank, SearchVector, SearchQuery
+from django.utils.deprecation import RemovedInDjango20Warning
+from django.test import modify_settings, ignore_warnings
 
 from . import PostgreSQLTestCase
 from .models import Character, Line, Scene
-
-try:
-    from django.contrib.postgres.search import SearchRank, SearchVector, SearchQuery
-except ImportError:
-    pass
 
 
 class GrailTestData(object):
@@ -80,6 +75,14 @@ class GrailTestData(object):
         )
 
 
+class ContribPostgresNotInstalledTests(PostgreSQLTestCase):
+    @ignore_warnings(category=RemovedInDjango20Warning)
+    def test_search_lookup_missing(self):
+        msg = "Add 'django.contrib.postgres' to settings.INSTALLED_APPS to use the search operator."
+        with self.assertRaisesMessage(NotImplementedError, msg):
+            list(Line.objects.filter(dialogue__search='elbows'))
+
+
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
 class SimpleSearchTest(GrailTestData, PostgreSQLTestCase):
 
@@ -140,13 +143,7 @@ class MultipleFieldsTest(GrailTestData, PostgreSQLTestCase):
         searched = Line.objects.annotate(
             search=SearchVector('scene__setting', 'dialogue'),
         ).filter(search='bedemir')
-        self.assertEqual(set(searched), {
-            self.bedemir0,
-            self.bedemir1,
-            self.crowd,
-            self.witch,
-            self.duck,
-        })
+        self.assertEqual(set(searched), {self.bedemir0, self.bedemir1, self.crowd, self.witch, self.duck})
 
     def test_config_query_explicit(self):
         searched = Line.objects.annotate(
@@ -168,13 +165,7 @@ class TestCombinations(GrailTestData, PostgreSQLTestCase):
         searched = Line.objects.annotate(
             search=SearchVector('scene__setting') + SearchVector('character__name'),
         ).filter(search='bedemir')
-        self.assertEqual(set(searched), {
-            self.bedemir0,
-            self.bedemir1,
-            self.crowd,
-            self.witch,
-            self.duck,
-        })
+        self.assertEqual(set(searched), {self.bedemir0, self.bedemir1, self.crowd, self.witch, self.duck})
 
     def test_vector_add_multi(self):
         searched = Line.objects.annotate(
@@ -184,13 +175,7 @@ class TestCombinations(GrailTestData, PostgreSQLTestCase):
                 SearchVector('dialogue')
             ),
         ).filter(search='bedemir')
-        self.assertEqual(set(searched), {
-            self.bedemir0,
-            self.bedemir1,
-            self.crowd,
-            self.witch,
-            self.duck,
-        })
+        self.assertEqual(set(searched), {self.bedemir0, self.bedemir1, self.crowd, self.witch, self.duck})
 
     def test_query_and(self):
         searched = Line.objects.annotate(
