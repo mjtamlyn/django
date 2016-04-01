@@ -1,5 +1,5 @@
 from django.db.models import Field, FloatField
-from django.db.models.expressions import Func, Value, CombinedExpression
+from django.db.models.expressions import CombinedExpression, Func, Value
 from django.db.models.functions import Coalesce
 from django.db.models.lookups import Lookup
 
