@@ -93,7 +93,6 @@ class SimpleSearchTest(GrailTestData, PostgreSQLTestCase):
 
     def test_search_two_terms(self):
         searched = Line.objects.filter(dialogue__search='heart bowel')
-        print(searched.query)
         self.assertSequenceEqual(searched, [self.verse2])
 
     def test_search_two_terms_with_partial_match(self):
@@ -168,6 +167,22 @@ class TestCombinations(GrailTestData, PostgreSQLTestCase):
     def test_vector_add(self):
         searched = Line.objects.annotate(
             search=SearchVector('scene__setting') + SearchVector('character__name'),
+        ).filter(search='bedemir')
+        self.assertEqual(set(searched), {
+            self.bedemir0,
+            self.bedemir1,
+            self.crowd,
+            self.witch,
+            self.duck,
+        })
+
+    def test_vector_add_multi(self):
+        searched = Line.objects.annotate(
+            search=(
+                SearchVector('scene__setting') +
+                SearchVector('character__name') +
+                SearchVector('dialogue')
+            ),
         ).filter(search='bedemir')
         self.assertEqual(set(searched), {
             self.bedemir0,

@@ -1,5 +1,5 @@
 from django.db.models import Field, FloatField
-from django.db.models.expressions import Func, Value
+from django.db.models.expressions import Func, Value, CombinedExpression
 from django.db.models.functions import Coalesce
 from django.db.models.lookups import Lookup
 
@@ -32,10 +32,22 @@ class SearchQueryField(Field):
         return 'tsquery'
 
 
-class SearchVector(Func):
+class SearchVectorCombinable(object):
+    ADD = '||'
+
+    def _combine(self, other, connector, reversed, node=None):
+        if (not isinstance(other, SearchVectorCombinable) or
+                not isinstance(self, SearchVectorCombinable) or
+                not self.config == other.config):
+            raise TypeError('SearchVector can only be combined with other SearchVectors')
+        if reversed:
+            return CombinedSearchVector(other, connector, self, self.config)
+        return CombinedSearchVector(self, connector, other, self.config)
+
+
+class SearchVector(SearchVectorCombinable, Func):
     function = 'to_tsvector'
     arg_joiner = " || ' ' || "
-    ADD = '||'
     _output_field = SearchVectorField()
 
     config = None
@@ -66,12 +78,11 @@ class SearchVector(Func):
             sql = "setweight({}, {})".format(sql, weight_sql)
         return sql, params + extra_params
 
-    def _combine(self, other, connector, reversed, node=None):
-        if not type(other) == type(self) or not self.config == other.config:
-            raise TypeError('SearchVector can only be combined with other SearchVectors')
-        combined = super(SearchVector, self)._combine(other, connector, reversed, node)
-        combined.config = self.config
-        return combined
+
+class CombinedSearchVector(SearchVectorCombinable, CombinedExpression):
+    def __init__(self, lhs, connector, rhs, config, output_field=None):
+        self.config = config
+        super(CombinedSearchVector, self).__init__(lhs, connector, rhs, output_field)
 
 
 class SearchQuery(Value):
